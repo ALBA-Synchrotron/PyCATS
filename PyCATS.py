@@ -5,6 +5,52 @@ import time
 import pycats
 from pycats import CATS2TANGO, TANGO2CATS
 
+"""
+Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
+  Beware of: 
+    ISARA accepts a new tool:  number 5 for tool parameter is "double gripper"
+
+    sample addresses
+       CATS: lid, sample_no 
+           sample_no is regarding that lid 
+           (for example for 3rd sample in 2nd puck of a 3puck lid with 10 samples each 
+                   sample_no is 23 )
+
+       ISARA:  puck, sample_no
+           there is only one big lid in ISARA model
+              puck number is given instead of lid number
+              sample number is number of sample in that puck
+
+
+    some new syntax for ISARA:
+       toolcal is always zero for ISARA. For commands using it the value provided is ignored 
+
+       back(tool) - ISARA 
+       back(tool, toolcal)  - CATS
+
+       soak(tool) - ISARA
+       soak(tool, lid)  - CATS
+
+    commands ISARA only
+       - settool2()
+       - pick()
+
+    commands CATS only
+       - transfer()
+       - rd_position()
+       - rd_load()
+
+       - goto_well()
+       - adjust()
+       - collect()
+       - focus()
+       - expose()
+       - setplateangle()
+     
+
+   
+
+"""
 class StatusUpdateThread(threading.Thread):
   def __init__(self, ds):
     threading.Thread.__init__(self)
@@ -46,6 +92,8 @@ class CATS(PyTango.Device_4Impl):
   def init_device(self):
     self.get_device_properties(self.get_device_class())
     try:
+      self.cs8connection.set_model(self.model)
+      self.cs8connection.set_puck_types(self.puck_types)
       self.cs8connection.connect(self.host, self.port_operate, self.port_monitor)
       self.status_update_thread = StatusUpdateThread(self)
       self.status_update_thread.start()
@@ -83,22 +131,37 @@ class CATS(PyTango.Device_4Impl):
     new_status += ' Tool(%s)'                 % self.status_dict[TANGO2CATS['Tool']]                 
     new_status += ' Path(%s)'                 % self.status_dict[TANGO2CATS['Path']]                 
     new_status += ' PathRunning(%s)'          % self.status_dict[TANGO2CATS['PathRunning']]          
-    new_status += '\nLidSampleOnTool(%s)'     % self.status_dict[TANGO2CATS['LidSampleOnTool']]      
+    if self.cs8connection.get_model() != "ISARA":
+        new_status += '\nLidSampleOnTool(%s)'     % self.status_dict[TANGO2CATS['LidSampleOnTool']]      
+    else:
+        new_status += '\nPuckNumberOnTool(%s)'    % self.status_dict[TANGO2CATS['PuckNumberOnTool']]
     new_status += ' NumSampleOnTool(%s)'      % self.status_dict[TANGO2CATS['NumSampleOnTool']]      
-    new_status += ' Barcode(%s)'              % self.status_dict[TANGO2CATS['Barcode']]              
-    new_status += '\nLidSampleOnDiff(%s)'     % self.status_dict[TANGO2CATS['LidSampleOnDiff']]      
+    if self.cs8connection.get_model() == "ISARA":
+        new_status += ' PuckNumberOnTool2(%s)'    % self.status_dict[TANGO2CATS['PuckNumberOnTool2']]
+        new_status += ' NumSampleOnTool2(%s)'  % self.status_dict[TANGO2CATS['NumSampleOnTool2']]
+    new_status += '\nBarcode(%s)'              % self.status_dict[TANGO2CATS['Barcode']]              
+    if self.cs8connection.get_model() != "ISARA":
+       new_status += '\nLidSampleOnDiff(%s)'     % self.status_dict[TANGO2CATS['LidSampleOnDiff']]      
+    else:
+       new_status += '\nPuckNumberOnDiff(%s)'     % self.status_dict[TANGO2CATS['PuckSampleOnDiff']]      
     new_status += ' NumSampleOnDiff(%s)'      % self.status_dict[TANGO2CATS['NumSampleOnDiff']]      
     new_status += '\nNumPlateOnTool(%s)'      % self.status_dict[TANGO2CATS['NumPlateOnTool']]       
-    new_status += ' Well(%s)'                 % self.status_dict[TANGO2CATS['Well']]                 
+    if self.cs8connection.get_model() != "ISARA":
+        new_status += ' Well(%s)'                 % self.status_dict[TANGO2CATS['Well']]                 
     new_status += '\nLN2Regulating(%s)'       % self.status_dict[TANGO2CATS['LN2Regulating']]        
-    new_status += ' LN2Warming(%s)'           % self.status_dict[TANGO2CATS['LN2Warming']]           
+    if self.cs8connection.get_model() != "ISARA":
+        new_status += ' LN2Warming(%s)'           % self.status_dict[TANGO2CATS['LN2Warming']]           
     new_status += '\nAutoMode(%s)'            % self.status_dict[TANGO2CATS['AutoMode']]             
     new_status += ' DefaultStatus(%s)'        % self.status_dict[TANGO2CATS['DefaultStatus']]        
     new_status += ' SpeedRatio(%s)'           % self.status_dict[TANGO2CATS['SpeedRatio']]
-    new_status += '\nPuckDetectionDewar1(%s)'  % self.status_dict[TANGO2CATS['PuckDetectionDewar1']]
-    new_status += ' PuckDetectionDewar2(%s)'  % self.status_dict[TANGO2CATS['PuckDetectionDewar2']]
+    if self.cs8connection.get_model() != "ISARA":
+        new_status += '\nPuckDetectionDewar1(%s)'  % self.status_dict[TANGO2CATS['PuckDetectionDewar1']]
+        new_status += ' PuckDetectionDewar2(%s)'  % self.status_dict[TANGO2CATS['PuckDetectionDewar2']]
     new_status += ' PositionNumberDewar1(%s)' % self.status_dict[TANGO2CATS['PositionNumberDewar1']]
-    new_status += ' PositionNumberDewar2(%s)' % self.status_dict[TANGO2CATS['PositionNumberDewar2']]
+    if self.cs8connection.get_model() != "ISARA":
+        new_status += ' PositionNumberDewar2(%s)' % self.status_dict[TANGO2CATS['PositionNumberDewar2']]
+    if self.cs8connection.get_model() == "ISARA":
+        new_status += ' CurrentNumberOfSoaking(%s)' % self.status_dict[TANGO2CATS['CurrentNumberOfSoaking']]
 
     
     if new_status_dict[TANGO2CATS['Path']] != '':
@@ -116,6 +179,10 @@ class CATS(PyTango.Device_4Impl):
   def read_DefaultStatus(self, attr): attr.set_value(self.status_dict[TANGO2CATS['DefaultStatus']])
   def read_Tool(self, attr): attr.set_value(self.status_dict[TANGO2CATS['Tool']])
   def read_Path(self, attr): attr.set_value(self.status_dict[TANGO2CATS['Path']])
+  def read_CatsModel(self,attr):  attr.set_value(self.cs8connection.get_model())
+  def read_NbCassettes(self,attr):  attr.set_value(self.cs8connection.get_number_pucks())
+  def read_CassettePresence(self,attr): attr.set_value(self.cs8connection.get_puck_presence())
+  def read_CassetteType(self,attr): attr.set_value(self.cs8connection.get_puck_types())
   def read_LidSampleOnTool(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LidSampleOnTool']])
   def read_NumSampleOnTool(self, attr): attr.set_value(self.status_dict[TANGO2CATS['NumSampleOnTool']])
   def read_LidSampleOnDiff(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LidSampleOnDiff']])
@@ -131,6 +198,9 @@ class CATS(PyTango.Device_4Impl):
   def read_PuckDetectionDewar2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckDetectionDewar2']])
   def read_PositionNumberDewar1(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PositionNumberDewar1']])
   def read_PositionNumberDewar2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PositionNumberDewar2']])
+  def read_PuckNumberInTool2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckNumberInTool2']])
+  def read_SampleNumberInTool2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['SampleNumberInTool2']])
+  def read_CurrentNumberOfSoaking(self, attr): attr.set_value(self.status_dict[TANGO2CATS['CurrentNumberOfSoaking']])
 
   # DI PARAMS pycats.di_params
   def read_di_CryoOK(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_CryoOK']])
@@ -141,10 +211,16 @@ class CATS(PyTango.Device_4Impl):
   def read_di_CryoHighLevel(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_CryoHighLevel']])
   def read_di_CryoLowLevelAlarm(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_CryoLowLevelAlarm']])
   def read_di_CryoLiquidDetection(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_CryoLiquidDetection']])
-  def read_di_PRI1_GFM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI1_GFM']])
-  def read_di_PRI2_API(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI2_API']])
-  def read_di_PRI3_APL(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI3_APL']])
-  def read_di_PRI4_SOM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI4_SOM']])
+  def read_di_PRI1_GFM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_GFM']])
+  def read_di_PRI2_API(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_API']])
+  def read_di_PRI3_APL(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_APL']])
+  def read_di_PRI4_SOM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_SOM']])
+  def read_di_PRI_GFM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_GFM']])
+  def read_di_PRI_API(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_API']])
+  def read_di_PRI_APL(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_APL']])
+  def read_di_PRI_SOM(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PRI_SOM']])
+  def read_di_DiffPlateMode(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_DiffPlateMode']])
+  def read_di_PlateOnDiff(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_PlateOnDiff']])
   def read_di_Cassette1Presence(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_Cassette1Presence']])
   def read_di_Cassette2Presence(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_Cassette2Presence']])
   def read_di_Cassette3Presence(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_Cassette3Presence']])
@@ -258,6 +334,8 @@ class CATS(PyTango.Device_4Impl):
   # MESSAGE
   def read_Message(self, attr): attr.set_value(self.status_dict[TANGO2CATS['Message']])
 
+  # Convenience values
+  def read_SampleOnDiff(self, attr): attr.set_value(self.is_sample_on_diff())
 
   #################################################################
   ######################## EXECUTE COMMANDS #######################
@@ -282,14 +360,18 @@ class CATS(PyTango.Device_4Impl):
     tool = argin
     return self.cs8connection.safe(tool)
   def put(self, argin):
-    tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-    return self.cs8connection.put(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+    if self.is_sample_on_diff():
+       raise Exception("Put operation not authorized while a sample is detected on magnet")
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.put(tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift)
   def put_HT(self, argin):
     tool, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.put_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift)
   def put_bcrd(self, argin):
-    tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-    return self.cs8connection.put_bcrd(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+    if self.is_sample_on_diff():
+       raise Exception("Put operation not authorized while a sample is detected on magnet")
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.put_bcrd(tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift)
   def get(self, argin):
     tool, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.get(tool, toolcal, x_shift, y_shift, z_shift)
@@ -297,41 +379,77 @@ class CATS(PyTango.Device_4Impl):
     tool, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.get_HT(tool, toolcal, x_shift, y_shift, z_shift)
   def getput(self, argin):
-    tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-    return self.cs8connection.getput(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.getput(tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift)
   def getput_HT(self, argin):
     tool, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.getput_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift)
   def getput_bcrd(self, argin):
-    tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-    return self.cs8connection.getput_bcrd(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.getput_bcrd(tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift)
   def barcode(self, argin):
-    tool, newlid, newsample, type, toolcal = argin
-    return self.cs8connection.barcode(tool, newlid, newsample, type, toolcal)
+    tool, puck_lid, sample, type, toolcal = argin
+    return self.cs8connection.barcode(tool, puck_lid, sample, type, toolcal)
   def back(self, argin):
-    tool, toolcal = argin
-    return self.cs8connection.back(tool, toolcal)
+    if self.cs8connection.get_model() == "ISARA":
+        tool = argin[0]
+        return self.cs8connection.back(tool)
+    else:
+        tool, toolcal = argin
+        return self.cs8connection.back(tool, toolcal)
   def transfer(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "Transfer command not available for ISARA model"
     tool, lid, sample, newlid, newsample, type, toolcal = argin
     return self.cs8connection.transfer(tool, lid, sample, newlid, newsample, type, toolcal)
+  def pick(self, argin):
+     if self.cs8connection.get_model() == "ISARA":
+         tool, puck, sample, type = argin
+         return self.cs8connection.pick(tool, puck, sample, type)
+     else:
+        return "Pick command not available for CATS model"
   def soak(self, argin):
-    tool, lid = argin
-    return self.cs8connection.soak(tool, lid)
+    if self.cs8connection.get_model() == "ISARA":
+        tool = argin[0]
+        return self.cs8connection.soak(tool)
+    else:
+        tool, puck_lid = argin
+        return self.cs8connection.soak(tool, puck_lid)
   def dry(self, argin):
     tool = argin
     return self.cs8connection.dry(tool)
   def gotodif(self, argin):
-    tool, lid, sample, type, toolcal = argin
-    return self.cs8connection.gotodif(tool, lid, sample, type, toolcal)
+    tool, puck_lid, sample, type, toolcal = argin
+    return self.cs8connection.gotodif(tool, puck_lid, sample, type, toolcal)
   def rd_position(self, argin):
-    tool, lid = argin
-    return self.cs8connection.rd_position(tool, lid)
+    if self.cs8connection.get_model() == "ISARA":
+        return "rd_position is not a command for ISARA model"
+    tool, puck_lid = argin
+    return self.cs8connection.rd_position(tool, puck_lid)
   def rd_load(self, argin):
-    tool, newlid = argin
-    return self.cs8connection.rd_load(tool, newlid)
+    if self.cs8connection.get_model() == "ISARA":
+        return "rd_load is not a command for ISARA model"
+    tool, newpuck_lid = argin
+    return self.cs8connection.rd_load(tool, newpuck_lid)
   def puckdetect(self, argin):
-    lid, toolcal = argin
-    return self.cs8connection.puckdetect(lid, toolcal)
+    if self.cs8connection.get_model() == "ISARA":
+        return "puckdetect is not a command for ISARA model"
+    puck_lid, toolcal = argin
+    return self.cs8connection.puckdetect(puck_lid, toolcal)
+  def recover(self, argin):
+    tool = argin
+    return self.cs8connection.recover(tool)
+  def setondiff(self, argin):
+    puck_lid, sample, type = argin
+    return self.cs8connection.setondiff(puck_lid, sample, type)
+  def settool(self, argin):
+    puck_lid, sample, type = argin
+    return self.cs8connection.settool(puck_lid, sample, type)
+  def settool2(self, argin):
+    if self.cs8connection.get_model() != "ISARA":
+        return "settool2 is not a command for CATS model"
+    puck_lid, sample, type = argin
+    return self.cs8connection.settool(puck_lid, sample, type)
 
   # 3.6.5.3 Crystallization plate commands
   def putplate(self, argin):
@@ -344,21 +462,33 @@ class CATS(PyTango.Device_4Impl):
     tool, plate, well, type, drop, toolcal = argin
     return self.cs8connection.getputplate(tool, plate, well, type, drop, toolcal)
   def goto_well(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "goto_well is not a command for ISARA model"
     tool, plate, well, toolcal = argin
     return self.cs8connection.goto_well(tool, plate, well, toolcal)
   def adjust(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "adjust is not a command for ISARA model"
     tool, toolcal, x_shift, y_shift = argin
     return self.cs8connection.adjust(tool, toolcal, x_shift, y_shift)
   def focus(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "focus is not a command for ISARA model"
     tool, toolcal, z_shift = argin
     return self.cs8connection.focus(tool, toolcal, z_shift)
   def expose(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "expose is not a command for ISARA model"
     tool, toolcal, angle, oscillations, exp_time, step = argin
     return self.cs8connection.expose(tool, toolcal, angle, oscillations, exp_time, step)
   def collect(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "collect is not a command for ISARA model"
     tool, toolcal, angle, oscillations, exp_time, step, final_angle = argin
     return self.cs8connection.collect(tool, toolcal, angle, oscillations, exp_time, step, final_angle)
   def setplateangle(self, argin):
+    if self.cs8connection.get_model() == "ISARA":
+        return "setplateangle is not a command for ISARA model"
     tool, toolcal, angle = argin
     return self.cs8connection.setplateangle(tool, toolcal, angle)
 
@@ -395,11 +525,22 @@ class CATS(PyTango.Device_4Impl):
   def initdew2(self): return self.cs8connection.initdew2()
   def onestaticdw(self): return self.cs8connection.onestaticdw()
   def tworotatingdw(self): return self.cs8connection.tworotatingdw()
+  def openlid(self): return self.cs8connection.openlid()
+  def closelid(self): return self.cs8connection.closelid()
+  def clearbcrd(self): return self.cs8connection.clearbcrd()
+  def remotespeedon(self): return self.cs8connection.remotespeedon()
+  def remotespeedoff(self): return self.cs8connection.remotespeedoff()
+  def speedup(self): return self.cs8connection.speedup()
+  def speeddown(self): return self.cs8connection.speeddown()
 
-  # NOT DOCUMENTED THREE NEW COMMANDS...
+  # 
   def clear_memory(self): return self.cs8connection.clear_memory()
   def reset_parameters(self): return self.cs8connection.reset_parameters()
   def resetmotion(self): return self.cs8connection.resetMotion()
+
+  def toolcalibration(self, argin): 
+    tool = argin
+    return self.cs8connection.toolcalibration(tool)
 
   # 3.6.5.7 Status commands
   def mon_state(self): return self.cs8connection.state()
@@ -413,6 +554,12 @@ class CATS(PyTango.Device_4Impl):
   def send_op_cmd(self, cmd): return self.cs8connection.operate(cmd)
   def send_mon_cmd(self, cmd): return self.cs8connection.monitor(cmd)
 
+  def is_sample_on_diff(self):
+      num_sample_on_diff = self.status_dict[TANGO2CATS['NumSampleOnDiff']]
+      sample_on_magnet = self.status_dict[TANGO2CATS['di_PRI_SOM']]
+
+      return (num_sample_on_diff != -1) or sample_on_magnet
+
 class CATSClass(PyTango.DeviceClass):
   device_property_list = {
     'host': [PyTango.DevString,
@@ -424,6 +571,12 @@ class CATSClass(PyTango.DeviceClass):
     'port_monitor': [PyTango.DevUShort,
                      "Socket's port to monitor the CATS system.",
                      []],
+    'model': [PyTango.DevString,
+                     "System model (cats/isara).",
+                     ["cats"]],
+    'puck_types': [PyTango.DevString,
+                     "nb_pucks x puck_type (2=unipuck,1=spine,0=ignore).",
+                     ["22222222222211122111122111222"]],
     'update_freq_ms': [PyTango.DevUShort,
                        "Time in ms to update the status of the CATS system.",
                        []]
@@ -436,6 +589,10 @@ class CATSClass(PyTango.DeviceClass):
     'DefaultStatus':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'Tool':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
     'Path':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
+    'CatsModel':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
+    'NbCassettes':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'CassettePresence':[[PyTango.ArgType.DevShort, PyTango.SPECTRUM, PyTango.READ, 32]],
+    'CassetteType':[[PyTango.ArgType.DevShort, PyTango.SPECTRUM, PyTango.READ, 32]],
     'LidSampleOnTool':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'NumSampleOnTool':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'LidSampleOnDiff':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
@@ -451,6 +608,9 @@ class CATSClass(PyTango.DeviceClass):
     'PuckDetectionDewar2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'PositionNumberDewar1':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'PositionNumberDewar2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'PuckNumberInTool2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'SampleNumberInTool2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'CurrentNumberOfSoaking':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
 
     # DI PARAMS pycats.di_params
     'di_CryoOK':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
@@ -469,14 +629,28 @@ class CATSClass(PyTango.DeviceClass):
                             {'description':'False:'+pycats.di_help[TANGO2CATS['di_CryoLowLevelAlarm']][0]+' True:'+pycats.di_help[TANGO2CATS['di_CryoLowLevelAlarm']][1]}],
     'di_CryoLiquidDetection':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
                               {'description':'False:'+pycats.di_help[TANGO2CATS['di_CryoLiquidDetection']][0]+' True:'+pycats.di_help[TANGO2CATS['di_CryoLiquidDetection']][1]}],
+
+     # we keep this for backward compatibility. for ISARA / CATS compatibility we remove number of process input from attribute name
     'di_PRI1_GFM':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
-                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI1_GFM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI1_GFM']][1]}],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_GFM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_GFM']][1]}],
     'di_PRI2_API':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
-                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI2_API']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI2_API']][1]}],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_API']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_API']][1]}],
     'di_PRI3_APL':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
-                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI3_APL']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI3_APL']][1]}],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_APL']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_APL']][1]}],
     'di_PRI4_SOM':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
-                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI4_SOM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI4_SOM']][1]}],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_SOM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_SOM']][1]}],
+    'di_PRI_GFM':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                  {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_GFM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_GFM']][1]}],
+    'di_PRI_API':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_API']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_API']][1]}],
+    'di_PRI_APL':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_APL']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_APL']][1]}],
+    'di_PRI_SOM':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PRI_SOM']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PRI_SOM']][1]}],
+    'di_PlateOnDiff':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_PlateOnDiff']][0]+' True:'+pycats.di_help[TANGO2CATS['di_PlateOnDiff']][1]}],
+    'di_DiffPlateMode':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
+                   {'description':'False:'+pycats.di_help[TANGO2CATS['di_DiffPlateMode']][0]+' True:'+pycats.di_help[TANGO2CATS['di_DiffPlateMode']][1]}],
     'di_Cassette1Presence':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
                             {'description':'False:'+pycats.di_help[TANGO2CATS['di_Cassette1Presence']][0]+' True:'+pycats.di_help[TANGO2CATS['di_Cassette1Presence']][1]}],
     'di_Cassette2Presence':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
@@ -687,7 +861,10 @@ class CATSClass(PyTango.DeviceClass):
     'RZpos':[[PyTango.DevFloat, PyTango.SCALAR, PyTango.READ]],
 
     # MESSAGE
-    'Message':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]]
+    'Message':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
+
+    # Convenience values
+    'SampleOnDiff': [[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]]
     }
 
   cmd_list = {
@@ -703,37 +880,41 @@ class CATSClass(PyTango.DeviceClass):
     'restore': [[PyTango.DevShort, 'usbport = 100:USB0/J202 101:USB1/J209'], [PyTango.DevString],],
 
     # 3.6.5.2 Trajectories commands
-    'home': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection'], [PyTango.DevString],],
-    'safe': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection'], [PyTango.DevString],],
-    'put': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'home': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'safe': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'put': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'put_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'get': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
+    'getput': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'getput_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'barcode': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
+    'back': [[PyTango.DevVarStringArray, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0'], [PyTango.DevString],],
+    'transfer': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:new puck or lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [PyTango.DevString],],
+    'pick': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
+    'soak': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
+    'dry': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'gotodif': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
+    'rd_position': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
+    'rd_load': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:new puck or lid number'], [PyTango.DevString],],
+    'puckdetect': [[PyTango.DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:toolcal=0'], [PyTango.DevString],],
+    'recover': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'setondiff': [[PyTango.DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)'], [PyTango.DevString],],
+    'settool': [[PyTango.DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)'], [PyTango.DevString],],
+    'settool2': [[PyTango.DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)'], [PyTango.DevString],],
     'put_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [PyTango.DevString],],
-    'put_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
-    'get': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
     'get_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
-    'getput': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
-    'getput_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [PyTango.DevString],],
-    'getput_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
-    'barcode': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:new lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
-    'back': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0'], [PyTango.DevString],],
-    'transfer': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:new lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [PyTango.DevString],],
-    'soak': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number'], [PyTango.DevString],],
-    'dry': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection'], [PyTango.DevString],],
-    'gotodif': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
-    'rd_position': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number'], [PyTango.DevString],],
-    'rd_load': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:new lid number'], [PyTango.DevString],],
-    'puckdetect': [[PyTango.DevVarStringArray, 'StringArray:\n0:lid number\n1:toolcal=0'], [PyTango.DevString],],
 
 
     # 3.6.5.3 Crystallization plate commands
-    'putplate': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:plate number\n2:well number\n3:type = No info in docs\n4:toolcal=0'], [PyTango.DevString],],
-    'getplate': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\\n1:drop=0\n2:toolcal=0'], [PyTango.DevString],],
-    'getputplate': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:plate number\n2:well number\n3:type = No info in docs\n4:drop=0\n5:toolcal=0'], [PyTango.DevString],],
-    'goto_well': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:plate number\n2:well number\n3:toolcal=0'], [PyTango.DevString],],
-    'adjust': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)'], [PyTango.DevString],],
-    'focus': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:Z_CATS shift (um)'], [PyTango.DevString],],
-    'expose': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:angle (deg)\n3:# oscillations\n4:expose time\n5:step:'], [PyTango.DevString],],
-    'collect': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:angle (deg)\n3:# oscillations\n4:expose time\n5:step\n6:final angle'], [PyTango.DevString],],
-    'setplateangle': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:angle (deg)'], [PyTango.DevString],],
+    'putplate': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:plate number\n2:well number\n3:type = No info in docs\n4:toolcal=0'], [PyTango.DevString],],
+    'getplate': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\\n1:drop=0\n2:toolcal=0'], [PyTango.DevString],],
+    'getputplate': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:plate number\n2:well number\n3:type = No info in docs\n4:drop=0\n5:toolcal=0'], [PyTango.DevString],],
+    'goto_well': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:plate number\n2:well number\n3:toolcal=0'], [PyTango.DevString],],
+    'adjust': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)'], [PyTango.DevString],],
+    'focus': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:Z_CATS shift (um)'], [PyTango.DevString],],
+    'expose': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:angle (deg)\n3:# oscillations\n4:expose time\n5:step:'], [PyTango.DevString],],
+    'collect': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:angle (deg)\n3:# oscillations\n4:expose time\n5:step\n6:final angle'], [PyTango.DevString],],
+    'setplateangle': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0\n2:angle (deg)'], [PyTango.DevString],],
 
     # 3.6.5.4 Virtual Inputs
     'vdi9xon': [[PyTango.DevShort, 'input = 90..91'], [PyTango.DevString],],
@@ -768,12 +949,18 @@ class CATSClass(PyTango.DeviceClass):
     'initdew2': [[PyTango.DevVoid],[PyTango.DevString],],
     'onestaticdw': [[PyTango.DevVoid],[PyTango.DevString],],
     'tworotatingdw': [[PyTango.DevVoid],[PyTango.DevString],],
-
-    # NOT DOCUMENTED THREE NEW COMMANDS...
+    'openlid': [[PyTango.DevVoid],[PyTango.DevString],],
+    'closelid': [[PyTango.DevVoid],[PyTango.DevString],],
+    'clearbcrd': [[PyTango.DevVoid],[PyTango.DevString],],
+    'remotespeedon': [[PyTango.DevVoid],[PyTango.DevString],],
+    'remotespeedoff': [[PyTango.DevVoid],[PyTango.DevString],],
+    'speedup': [[PyTango.DevVoid],[PyTango.DevString],],
+    'speeddown': [[PyTango.DevVoid],[PyTango.DevString],],
     'clear_memory': [[PyTango.DevVoid],[PyTango.DevString],],
     'reset_parameters': [[PyTango.DevVoid],[PyTango.DevString],],
     'resetmotion': [[PyTango.DevVoid],[PyTango.DevString],],
-    
+    'toolcalibration': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+
     # 3.6.5.7 Status commands
     'mon_state': [[PyTango.DevVoid],[PyTango.DevString],],
     'mon_di': [[PyTango.DevVoid],[PyTango.DevString],],
@@ -797,14 +984,14 @@ def main():
   try:
     util = PyTango.Util(sys.argv)
     util.add_class(CATSClass, CATS, 'CATS')
-    
+
     U = PyTango.Util.instance()
     U.server_init()
     U.server_run()
 
   except PyTango.DevFailed, e:
     print '-------> Received a DevFailed exception:',e
-  except Exception,e:
+  except Exception, e:
     print '-------> An unforeseen exception occured....',e
 
 if __name__ == "__main__":
