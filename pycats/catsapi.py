@@ -505,7 +505,7 @@ class CS8Connection():
                      exp_time=0, step=0, final_angle=0, spare_18=0, spare_19=0):
 
     # Some checks
-    if tool not in ("2", "3"):
+    if tool not in (2,3,"2", "3"):
       raise Exception('Only EMBL/SPINE or PLATES allowed')
 
     args = [tool, lid, sample, newlid, newsample, plate, well, type, \
@@ -527,11 +527,20 @@ class CS8Connection():
   def put_bcrd(self, tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift):
     return self.trajectory('put_bcrd', tool, lid, sample, 0, 0, 0, 0, type, 0, toolcal, x_shift, y_shift, z_shift)
 
+  def put_HT(self, tool, sample, type, toolcal, x_shift, y_shift, z_shift):
+    return self.trajectory('put_HT', tool, 100, sample, 0, 0, 0, 0, type, 0, toolcal, x_shift, y_shift, z_shift)
+
   def get(self, tool, toolcal, x_shift, y_shift, z_shift):
     return self.trajectory('get', tool, 0, 0, 0, 0, 0, 0, 0, 0, toolcal, x_shift, y_shift, z_shift)
 
+  def get_HT(self, tool, toolcal, x_shift, y_shift, z_shift):
+    return self.trajectory('get_HT', tool, 100, 0, 0, 0, 0, 0, 0, 0, toolcal, x_shift, y_shift, z_shift)
+
   def getput(self, tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift):
     return self.trajectory('getput', tool, lid, sample, 0, 0, 0, 0, type, 0, toolcal, x_shift, y_shift, z_shift)
+
+  def getput_HT(self, tool, sample, type, toolcal, x_shift, y_shift, z_shift):
+    return self.trajectory('getput_HT', tool, 100, sample, 0, 0, 0, 0, type, 0, toolcal, x_shift, y_shift, z_shift)
 
   def getput_bcrd(self, tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift):
     return self.trajectory('getput_bcrd', tool, lid, sample, 0, 0, 0, 0, type, 0, toolcal, x_shift, y_shift, z_shift)
@@ -539,8 +548,11 @@ class CS8Connection():
   def barcode(self, tool, newlid, newsample, type, toolcal):
     return self.trajectory('barcode', tool, 0, 0, newlid, newsample, 0, 0, type, 0, toolcal)
 
-  def back(self, tool, toolcal):
-    return self.trajectory('back', tool, 0, 0, 0, 0, 0, 0, 0, toolcal)
+  def back(self, tool, toolcal=None):
+    if toolcal is None:
+        return self.trajectory('back', tool)
+    else:
+        return self.trajectory('back', tool, 0, 0, 0, 0, 0, 0, 0, toolcal)
 
   def transfer(self, tool, lid, sample, newlid, newsample, type, toolcal):
     return self.trajectory('transfer', tool, lid, sample, newlid, newsample, 0, 0, type, 0, toolcal)

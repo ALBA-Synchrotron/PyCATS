@@ -284,15 +284,24 @@ class CATS(PyTango.Device_4Impl):
   def put(self, argin):
     tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.put(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+  def put_HT(self, argin):
+    tool, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.put_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift)
   def put_bcrd(self, argin):
     tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.put_bcrd(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
   def get(self, argin):
     tool, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.get(tool, toolcal, x_shift, y_shift, z_shift)
+  def get_HT(self, argin):
+    tool, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.get_HT(tool, toolcal, x_shift, y_shift, z_shift)
   def getput(self, argin):
     tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.getput(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
+  def getput_HT(self, argin):
+    tool, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.getput_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift)
   def getput_bcrd(self, argin):
     tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
     return self.cs8connection.getput_bcrd(tool, lid, sample, type, toolcal, x_shift, y_shift, z_shift)
@@ -697,9 +706,12 @@ class CATSClass(PyTango.DeviceClass):
     'home': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection'], [PyTango.DevString],],
     'safe': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection'], [PyTango.DevString],],
     'put': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'put_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [PyTango.DevString],],
     'put_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
     'get': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
+    'get_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
     'getput': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
+    'getput_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [PyTango.DevString],],
     'getput_bcrd': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0\n5:X_CATS shift (um)\n6:Y_CATS shift (um)\n7:Z_CATS shift (um)'], [PyTango.DevString],],
     'barcode': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:new lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
     'back': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0'], [PyTango.DevString],],
