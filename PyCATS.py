@@ -66,6 +66,8 @@ class StatusUpdateThread(threading.Thread):
         new_status_dict = self.ds.cs8connection.getStatusDict()
         self.ds.processStatusDict(new_status_dict)
       except Exception,e:
+        import traceback
+        print "error reading status", traceback.format_exc()
         self.ds.notifyNewState(PyTango.DevState.ALARM, 'Exception when getting status from the CATS system:\n%s' % str(e))
       time.sleep(self.ds.update_freq_ms / 1000.)
 
@@ -131,6 +133,7 @@ class CATS(PyTango.Device_4Impl):
     new_status += ' Tool(%s)'                 % self.status_dict[TANGO2CATS['Tool']]                 
     new_status += ' Path(%s)'                 % self.status_dict[TANGO2CATS['Path']]                 
     new_status += ' PathRunning(%s)'          % self.status_dict[TANGO2CATS['PathRunning']]          
+    new_status += ' PathSafe(%s)'             % self.isPathSafe()          
     if self.cs8connection.get_model() != "ISARA":
         new_status += '\nLidSampleOnTool(%s)'     % self.status_dict[TANGO2CATS['LidSampleOnTool']]      
     else:
@@ -169,6 +172,13 @@ class CATS(PyTango.Device_4Impl):
     else:
       self.notifyNewState(PyTango.DevState.ON, new_status)
 
+  def isPathSafe(self): 
+      return self.cs8connection.is_path_safe()
+
+  def isRecoveryNeeded(self): 
+      return self.cs8connection.is_recovery_needed()
+
+
   #################################################################
   ######################## READ ATTRIBUTES ########################
   #################################################################
@@ -191,6 +201,8 @@ class CATS(PyTango.Device_4Impl):
   def read_Well(self, attr): attr.set_value(self.status_dict[TANGO2CATS['Well']])
   def read_Barcode(self, attr): attr.set_value(self.status_dict[TANGO2CATS['Barcode']])
   def read_PathRunning(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PathRunning']])
+  def read_PathSafe(self,attr): attr.set_value(self.cs8connection.is_path_safe())
+  def read_RecoveryNeeded(self,attr): attr.set_value(self.cs8connection.is_recovery_needed())
   def read_LN2Regulating(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LN2Regulating']])
   def read_LN2Warming(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LN2Warming']])
   def read_SpeedRatio(self, attr): attr.set_value(self.status_dict[TANGO2CATS['SpeedRatio']])
@@ -351,6 +363,7 @@ class CATS(PyTango.Device_4Impl):
   def restart(self): return self.cs8connection.restart()
   def backup(self, usbport): return self.cs8connection.backup(usbport)
   def restore(self, usbport): return self.cs8connection.restore(usbport)
+  def recoverFailure(self): return self.cs8connection.start_recovery()
 
   # 3.6.5.2 Trajectories commands
   def home(self, argin):
@@ -576,7 +589,7 @@ class CATSClass(PyTango.DeviceClass):
                      ["cats"]],
     'puck_types': [PyTango.DevString,
                      "nb_pucks x puck_type (2=unipuck,1=spine,0=ignore).",
-                     ["22222222222211122111122111222"]],
+                     ["111111111"]],
     'update_freq_ms': [PyTango.DevUShort,
                        "Time in ms to update the status of the CATS system.",
                        []]
@@ -601,6 +614,8 @@ class CATSClass(PyTango.DeviceClass):
     'Well':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'Barcode':[[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
     'PathRunning':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
+    'PathSafe':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
+    'RecoveryNeeded':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'LN2Regulating':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'LN2Warming':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'SpeedRatio':[[PyTango.DevFloat, PyTango.SCALAR, PyTango.READ]],
@@ -903,7 +918,7 @@ class CATSClass(PyTango.DeviceClass):
     'settool2': [[PyTango.DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)'], [PyTango.DevString],],
     'put_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [PyTango.DevString],],
     'get_HT': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [PyTango.DevString],],
-
+    'recoverFailure': [[PyTango.DevVoid],[PyTango.DevString],],
 
     # 3.6.5.3 Crystallization plate commands
     'putplate': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:plate number\n2:well number\n3:type = No info in docs\n4:toolcal=0'], [PyTango.DevString],],

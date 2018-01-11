@@ -80,6 +80,8 @@ MODELS = {
 
 PUCK_IGNORE, PUCK_SPINE, PUCK_UNIPUCK = (0,1,2)
 
+RECOVER_GET_FAILED = 1
+
 state_params = ['POWER_1_0', 'AUTO_MODE_STATUS_1_0', 'DEFAULT_STATUS_1_0', 'TOOL_NUM_OR_NAME', 'PATH_NAME', 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL', 'NUM_SAMPLE_ON_TOOL', 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_OF_PLATE_ON_TOOL', 'WELL_NUM', 'BARCODE_NUM', 'PATH_RUNNING_1_0', 'LN2_REGULATION_RUNNING_1_0', 'LN2_WARMING_RUNNING_1_0', 'ROBOT_SPEED_RATIO', 'PUCK_DET_RESULT_DEW1', 'PUCK_DET_RESULT_DEW2', 'POSITION_NUM_DEW1', 'POSITION_NUM_DEW2', 'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2', 'NUM_SAMPLE_ON_TOOL2', 'CURR_NUM_SOAKING']
 
 di_params = ['CRYOGEN_SENSORS_OK','ESTOP_AND_AIRPRES_OK','COLLISION_SENSOR_OK','CRYOGEN_HIGH_LEVEL_ALARM','CRYOGEN_HIGH_LEVEL','CRYOGEN_LOW_LEVEL','CRYOGEN_LOW_LEVEL_ALARM','CRYOGEN_LIQUID_DETECTION','PRI_GFM','PRI_API','PRI_APL','PRI_SOM','CASSETTE_1_PRESENCE','CASSETTE_2_PRESENCE','CASSETTE_3_PRESENCE','CASSETTE_4_PRESENCE','CASSETTE_5_PRESENCE','CASSETTE_6_PRESENCE','CASSETTE_7_PRESENCE','CASSETTE_8_PRESENCE','CASSETTE_9_PRESENCE','LID_1_OPENED','LID_2_OPENED','LID_3_OPENED','TOOL_OPENED','TOOL_CLOSED','LIMSW1_ROT_GRIP_AXIS','LIMSW2_ROT_GRIP_AXIS','MODBUS_PLC_LIFE_BIT','.','.','LIFE_BIT_COMING_FROM_PLC','ACTIVE_LID_OPENED','NEW_ACTIVE_LID_OPENED','TOOL_CHANGER_OPENED','ACTIVE_CASSETTE_PRESENCE','NEW_ACTIVE_CASSETTE_PRESENCE','ALL_LIDS_CLOSED','.','.','.','.','.','.','.','.','.','PROCESS_INPUT_5','PROCESS_INPUT_6','PROCESS_INPUT_7','PROCESS_INPUT_8','PROCESS_INPUT_9','PROCESS_INPUT_10','PROCESS_INPUT_11','PROCESS_INPUT_12','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','VIRTUAL_INPUT_90','VIRTUAL_INPUT_91','VIRTUAL_INPUT_92','VIRTUAL_INPUT_93','VIRTUAL_INPUT_94','VIRTUAL_INPUT_95','VIRTUAL_INPUT_96','VIRTUAL_INPUT_97','VIRTUAL_INPUT_98','VIRTUAL_INPUT_99']
@@ -427,13 +429,42 @@ class CS8Connection():
     self.lock_mon = Lock()
 
     self.model = MODEL_CATS # default.  set_model() to change it
+
+    # info for checking path safe condition for diffractometer
+    self.pathinfo = {'safe': False, 'running': False}
+
+    self.is_running = False
+    self.is_safe = False
+    self.ri1_count = 0
+    self.ri2_count = 0
+    self.is_inr1 = False
+    self.is_inr2 = False
+    self.executing_recovery = False
+
+    # grp1 contains paths with one single passage through diffr areas
+    self.check_paths_grp1 = ['get', 'put', 'put_bcrd', 'get_HT', 'put_HT']
+
+    # grp2 contains paths with two passages through diffr areas
+    self.check_paths_grp2 = ['getput','getput_bcrd', 'getput_HT']
+
+    # get contains paths including a get operation (to detect recovery needed)
+    self.check_paths_get = ['getput','getput_bcrd', 'getput_HT', 'get','get_HT']
+
+    self.check_paths_all = self.check_paths_grp1 + self.check_paths_grp2
  
     # use set_puck_types() or property puck_types in device server to change
     self.nb_pucks = 9 # Default 9 pucks
     self.puck_types = [PUCK_SPINE,] * self.nb_pucks # default SPINE pucks
+    self.puck_presence = [False,] * self.nb_pucks
 
     if host is not None and operate_port is not None and monitor_port is not None:
       self.connect(host, operate_port, monitor_port)
+
+    # variables for recovery routines
+    self.sample_before_path = -1
+    self.lid_before_path = -1
+    self.puck_before_path = -1
+    self.latest_path = ""
 
   def __del__(self):
     self.disconnect()
@@ -471,6 +502,9 @@ class CS8Connection():
 
   def get_puck_presence(self):
       return self.puck_presence 
+
+  def is_path_safe(self):
+      return self.is_safe
 
   def connect(self, host, operate_port, monitor_port):
     self.host = host
@@ -924,12 +958,154 @@ class CS8Connection():
         except:
             self.puck_presence = [False,] * len(self.nb_pucks)
     else:
-        self.puck_presence = [False,] * len(self.nb_pucks)
-        for i in len(self.nb_pucks):
-           st_key = "CASSETE_%d_PRESENCE" % (i+1)
+        self.puck_presence = [False,] * self.nb_pucks
+        for i in range(self.nb_pucks):
+           st_key = "CASSETTE_%d_PRESENCE" % (i+1)
            self.puck_presence[i] = status_dict[st_key]
 
+    is_running = status_dict['PATH_RUNNING_1_0'] 
+
+    if is_running and not self.pathinfo['running']:
+        # new path started
+        # save current sample on diffr (for recovery purposes)
+        self.sample_before_path = status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+        if self.model is MODEL_ISARA:
+            self.puck_before_path = status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+        else:
+            self.lid_before_path = status_dict["LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+        self.latest_path = status_dict["PATH_NAME"]
+   
+    self.pathinfo['idle'] = status_dict['PRO5_IDL']
+    self.pathinfo['home'] = status_dict['PRO6_RAH']
+    self.pathinfo['in_area1'] = status_dict['PRO7_RI1']
+    self.pathinfo['in_area2'] = status_dict['PRO8_RI2']
+    self.is_som = status_dict['PRI_SOM']
+    self.is_idle = status_dict['PRO5_IDL']
+
+    if self.executing_recovery:
+        self.pathinfo['running'] = True
+        self.pathinfo['pathname'] = "recovery"
+    else:
+        self.pathinfo['running'] = is_running
+        self.pathinfo['pathname'] = status_dict['PATH_NAME']
+
+    self.pathinfo['safe'] = self.pathInSafeArea()
+
+    self.check_recovery_needed()
+
+    if self.executing_recovery:
+        self.follow_recovery_process()
+
+    if self.pathinfo['running']:
+        print("path running   '%(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
+
+     
     return status_dict
+
+  def check_recovery_needed(self):
+      # if command being executed is of type "get" and 
+      if self.ri1_count == 1 and self.pathinfo['pathname'] in self.check_paths_get:
+          if self.is_som:
+              self.recovery_type = RECOVER_GET_FAILED
+              self._is_recovery_needed = True
+              return 
+
+      self._is_recovery_needed = False
+      return False
+            
+  def is_recovery_needed(self):
+      return self._is_recovery_needed
+
+  def start_recovery(self):
+      if not self._is_recovery_needed:
+          return "nothing done"
+
+      self.executing_recovery = True
+      self.recovery_phase = 0
+      return "started"
+
+  def follow_recovery_process(self):
+      if self.recovery_type == RECOVER_GET_FAILED:
+           # 
+           if self.recovery_phase == 0:
+               # abort
+               self.abort()
+               print "recovering from GET_FAILED. Phase0 (abort)"
+               self.recovery_phase = 1
+           elif self.recovery_phase == 1:
+               print "recovering from GET_FAILED. Phase1 (waiting abort)"
+               # waiting abort to finish
+               if self.is_idle:
+                   self.recovery_phase = 2
+           elif self.recovery_phase == 2:
+               # restore sample info on diff
+               if self.model is MODEL_ISARA:
+                   puck_lid = self.puck_before_path
+               else:
+                   puck_lid = self.lid_before_path
+               sample = self.sample_before_path 
+               print "recovering from GET_FAILED. Phase2 (setondiff %s,%s)" % (puck_lid, sample)
+               self.setondiff(puck_lid, sample, 0)
+               # home
+               self.home(2)
+               self.recovery_phase = 3
+           else:
+               print "recovering from GET_FAILED. Phase3 (end recovery)" 
+               self.executing_recovery = False
+
+  def pathInSafeArea(self):
+
+      if not self.pathinfo['running']:
+          self.is_running = False
+          self.is_safe = True
+          self.ri1_count = 0
+          self.ri2_count = 0
+          self.is_inr1 = False
+          self.is_inr2 = False
+          return
+
+      if self.pathinfo['running'] and self.is_running is False:
+          self.is_running = True
+
+          if self.pathinfo['pathname'] not in self.check_paths_all:
+              self.is_safe = True
+          else:
+              self.is_safe = False
+              self.ri1_count = 0
+              self.ri2_count = 0
+              self.is_inr1 = False
+              self.is_inr2 = False
+
+      if self.pathinfo['pathname'] not in self.check_paths_all:
+          return self.is_safe
+     
+      # area1 became True
+      if self.pathinfo['in_area1'] and not self.is_inr1:
+          self.is_inr1 = True
+
+      # area1 became False
+      if not self.pathinfo['in_area1'] and self.is_inr1:
+          self.ri1_count += 1
+          self.is_inr1 = False
+
+          if self.pathinfo['pathname'] in self.check_paths_grp1:
+              if self.ri1_count > 0:
+                  self.is_safe = True
+          elif self.pathinfo['pathname'] in self.check_paths_grp2:
+              if self.ri1_count > 1:
+                  self.is_safe = True
+
+      # area2 became True
+      if self.pathinfo['in_area2'] and not self.is_inr2:
+          self.is_inr2 = True
+
+      # area2 became False
+      if not self.pathinfo['in_area2'] and self.is_inr2:
+          self.ri2_count += 1
+          self.is_inr2 = False
+
+      return self.is_safe
+
     
 
 ######################################################
