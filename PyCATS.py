@@ -212,6 +212,9 @@ class CATS(PyTango.Device_4Impl):
   def read_PuckNumberInTool2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckNumberInTool2']])
   def read_SampleNumberInTool2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['SampleNumberInTool2']])
   def read_CurrentNumberOfSoaking(self, attr): attr.set_value(self.status_dict[TANGO2CATS['CurrentNumberOfSoaking']])
+  def read_PuckTypeLid1(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckTypeLid1']])
+  def read_PuckTypeLid2(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckTypeLid2']])
+  def read_PuckTypeLid3(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PuckTypeLid3']])
 
   # DI PARAMS pycats.di_params
   def read_di_CryoOK(self, attr): attr.set_value(self.status_dict[TANGO2CATS['di_CryoOK']])
@@ -635,6 +638,9 @@ class CATSClass(PyTango.DeviceClass):
     'PuckNumberInTool2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'SampleNumberInTool2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
     'CurrentNumberOfSoaking':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'PuckTypeLid1':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'PuckTypeLid2':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
+    'PuckTypeLid3':[[PyTango.DevShort, PyTango.SCALAR, PyTango.READ]],
 
     # DI PARAMS pycats.di_params
     'di_CryoOK':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ],
