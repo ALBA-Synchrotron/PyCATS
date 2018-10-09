@@ -681,11 +681,6 @@ class CS8Connection():
         raise Exception('Transfer command not available for ISARA Sample Changer')
     return self.trajectory('transfer', tool, puck_lid, sample, newpuck_lid, newsample, 0, 0, type, 0, toolcal)
 
-  def pick(self, tool, puck_lid, sample, type):
-    if self.model is not MODEL_ISARA:
-        raise Exception('Transfer command not available for CATS Model Sample Changer')
-    return self.trajectory('pick', tool, puck_lid, sample, 0, 0, 0, 0, type)
-
   def soak(self, tool, puck_lid=None):
     if self.model is MODEL_ISARA:
         return self.trajectory('soak', tool)
