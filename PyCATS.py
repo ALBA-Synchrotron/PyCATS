@@ -32,8 +32,7 @@ Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
        soak(tool, lid)  - CATS
 
     commands ISARA only
-       - settool2()
-       - pick()
+       - None
 
     commands CATS only
        - transfer()
@@ -416,11 +415,8 @@ class CATS(PyTango.Device_4Impl):
     tool, lid, sample, newlid, newsample, type, toolcal = argin
     return self.cs8connection.transfer(tool, lid, sample, newlid, newsample, type, toolcal)
   def pick(self, argin):
-     if self.cs8connection.get_model() == "ISARA":
-         tool, puck, sample, type = argin
-         return self.cs8connection.pick(tool, puck, sample, type)
-     else:
-        return "Pick command not available for CATS model"
+    tool, puck, sample, type = argin
+    return self.cs8connection.pick(tool, puck, sample, type)
   def soak(self, argin):
     if self.cs8connection.get_model() == "ISARA":
         tool = argin[0]
@@ -459,8 +455,6 @@ class CATS(PyTango.Device_4Impl):
     puck_lid, sample, type = argin
     return self.cs8connection.settool(puck_lid, sample, type)
   def settool2(self, argin):
-    if self.cs8connection.get_model() != "ISARA":
-        return "settool2 is not a command for CATS model"
     puck_lid, sample, type = argin
     return self.cs8connection.settool(puck_lid, sample, type)
 
@@ -905,7 +899,7 @@ class CATSClass(PyTango.DeviceClass):
     'barcode': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
     'back': [[PyTango.DevVarStringArray, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0'], [PyTango.DevString],],
     'transfer': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:new puck or lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [PyTango.DevString],],
-    'pick': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
+    'pick': [[PyTango.DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
     'soak': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
     'dry': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
     'gotodif': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],

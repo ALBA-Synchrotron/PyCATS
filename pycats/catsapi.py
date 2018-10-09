@@ -697,6 +697,8 @@ class CS8Connection():
         return self.trajectory('gotodif', tool, puck_lid, sample, 0, 0, 0, 0, type, 0, toolcal)
 
   def pick(self, tool, puck_or_lid, sample, type):
+    return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
+
     if self.model is MODEL_ISARA:
         return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
     else:
@@ -781,8 +783,6 @@ class CS8Connection():
     return self.trajectory('settool', puck_lid, sample, type)
 
   def settool2(self, puck_lid, sample, type):
-    if self.model is not MODEL_ISARA:
-        raise Exception('settool2 command not available for CATS Model Sample Changer')
     return self.trajectory('settool2', puck_lid, sample, type)
 
   # GOTODIF ALREADY DEFINED FOR PINS!!!!
