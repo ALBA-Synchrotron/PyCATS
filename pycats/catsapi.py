@@ -830,6 +830,8 @@ class CS8Connection():
   def closelid4(self): return self.operate('closelid4')
   def opentool(self): return self.operate('opentool')
   def closetool(self): return self.operate('closetool')
+  def opentool2(self): return self.operate('opentool2')
+  def closetool2(self): return self.operate('closetool2')
   def magneton(self): return self.operate('magneton')
   def magnetoff(self): return self.operate('magnetoff')
   def heateron(self): return self.operate('heateron')

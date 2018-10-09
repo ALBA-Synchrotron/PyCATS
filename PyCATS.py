@@ -537,6 +537,8 @@ class CATS(PyTango.Device_4Impl):
   def closelid4(self): return self.cs8connection.closelid4()
   def opentool(self): return self.cs8connection.opentool()
   def closetool(self): return self.cs8connection.closetool()
+  def opentool2(self): return self.cs8connection.opentool2()
+  def closetool2(self): return self.cs8connection.closetool2()
   def magneton(self): return self.cs8connection.magneton()
   def magnetoff(self): return self.cs8connection.magnetoff()
   def heateron(self): return self.cs8connection.heateron()
@@ -965,6 +967,8 @@ class CATSClass(PyTango.DeviceClass):
     'closelid4': [[PyTango.DevVoid],[PyTango.DevString],],
     'opentool': [[PyTango.DevVoid],[PyTango.DevString],],
     'closetool': [[PyTango.DevVoid],[PyTango.DevString],],
+    'opentool2': [[PyTango.DevVoid],[PyTango.DevString],],
+    'closetool2': [[PyTango.DevVoid],[PyTango.DevString],],
     'magneton': [[PyTango.DevVoid],[PyTango.DevString],],
     'magnetoff': [[PyTango.DevVoid],[PyTango.DevString],],
     'heateron': [[PyTango.DevVoid],[PyTango.DevString],],
