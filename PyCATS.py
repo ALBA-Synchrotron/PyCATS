@@ -417,6 +417,10 @@ class CATS(PyTango.Device_4Impl):
   def pick(self, argin):
     tool, puck, sample, type = argin
     return self.cs8connection.pick(tool, puck, sample, type)
+  def getpuckpick(self, argin):
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.getputpick(tool, puck_lid, sample, type,
+                                         x_shift, y_shift, z_shift)
   def soak(self, argin):
     if self.cs8connection.get_model() == "ISARA":
         tool = argin[0]
@@ -427,6 +431,9 @@ class CATS(PyTango.Device_4Impl):
   def dry(self, argin):
     tool = argin
     return self.cs8connection.dry(tool)
+  def dryhome(self, argin):
+    tool = argin
+    return self.cs8connection.dryhome(tool)
   def gotodif(self, argin):
     tool, puck_lid, sample, type, toolcal = argin
     return self.cs8connection.gotodif(tool, puck_lid, sample, type, toolcal)
@@ -457,6 +464,12 @@ class CATS(PyTango.Device_4Impl):
   def settool2(self, argin):
     puck_lid, sample, type = argin
     return self.cs8connection.settool(puck_lid, sample, type)
+  def cap_on_lid(self, argin):
+    tool = argin
+    return self.cs8connection.cap_on_lid(tool)
+  def cap_off_lid(self, argin):
+    tool = argin
+    return self.cs8connection.cap_off_lid(tool)
 
   # 3.6.5.3 Crystallization plate commands
   def putplate(self, argin):
@@ -900,8 +913,10 @@ class CATSClass(PyTango.DeviceClass):
     'back': [[PyTango.DevVarStringArray, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0'], [PyTango.DevString],],
     'transfer': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:new puck or lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [PyTango.DevString],],
     'pick': [[PyTango.DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
+    'getpuckpick': [[PyTango.DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'],  [PyTango.DevString], ],
     'soak': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
     'dry': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'dryhome': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString], ],
     'gotodif': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
     'rd_position': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
     'rd_load': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:new puck or lid number'], [PyTango.DevString],],
@@ -968,6 +983,8 @@ class CATSClass(PyTango.DeviceClass):
     'clear_memory': [[PyTango.DevVoid],[PyTango.DevString],],
     'reset_parameters': [[PyTango.DevVoid],[PyTango.DevString],],
     'resetmotion': [[PyTango.DevVoid],[PyTango.DevString],],
+    'cap_on_lid': [[PyTango.DevUShort, 'tool = 6:Soaking cap'], [PyTango.DevString], ],
+    'cap_off_lid': [[PyTango.DevUShort, 'tool = 6:Soaking cap'], [PyTango.DevString], ],
     'toolcalibration': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
 
     # 3.6.5.7 Status commands

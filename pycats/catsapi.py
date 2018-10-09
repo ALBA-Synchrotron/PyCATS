@@ -690,6 +690,11 @@ class CS8Connection():
   def dry(self, tool):
     return self.trajectory('dry', tool)
 
+  def dryhome(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('dryhome command not available for ISARA Model Sample Changer')
+    return self.trajectory('dryhome', tool)
+
   def gotodif(self, tool, puck_lid, sample, type, toolcal):
     if self.model is MODEL_ISARA:
         return self.trajectory('gotodif', tool, puck_lid, sample, 0, 0, 0, 0, type)
@@ -699,10 +704,10 @@ class CS8Connection():
   def pick(self, tool, puck_or_lid, sample, type):
     return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
 
+  def getputpick(self, tool, puck_lid, sample, type, x_shift, y_shift, z_shift):
     if self.model is MODEL_ISARA:
-        return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
-    else:
-        raise Exception('Pick command not available for CATS Sample Changer')
+      raise Exception('getpuckpick command not available for ISARA Model Sample Changer')
+    return self.trajectory('getputpick', tool, puck_lid, sample, 0, 0, 0, 0, type, 0, 0, x_shift, y_shift, z_shift)
 
   def rd_position(self, tool, puck_lid):
     if self.model is MODEL_ISARA:
@@ -724,6 +729,16 @@ class CS8Connection():
     ret = self.trajectory('setdiffr', puck_lid, sample, type)
     print("   - returns:  %s" % ret)
     return ret
+
+  def cap_on_lid(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('capOnLid command not available for ISARA Model Sample Changer')
+    return self.trajectory('capOnLid', tool)
+
+  def cap_off_lid(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('capOffLid command not available for ISARA Model Sample Changer')
+    return self.trajectory('capOffLid', tool)
 
   def toolcalibration(self, tool):
     return self.trajectory('toolcal', tool)  
