@@ -82,7 +82,7 @@ PUCK_IGNORE, PUCK_SPINE, PUCK_UNIPUCK = (0,1,2)
 
 RECOVER_GET_FAILED = 1
 
-state_params = ['POWER_1_0', 'AUTO_MODE_STATUS_1_0', 'DEFAULT_STATUS_1_0', 'TOOL_NUM_OR_NAME', 'PATH_NAME', 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL', 'NUM_SAMPLE_ON_TOOL', 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_OF_PLATE_ON_TOOL', 'WELL_NUM', 'BARCODE_NUM', 'PATH_RUNNING_1_0', 'LN2_REGULATION_RUNNING_1_0', 'LN2_WARMING_RUNNING_1_0', 'ROBOT_SPEED_RATIO', 'PUCK_DET_RESULT_DEW1', 'PUCK_DET_RESULT_DEW2', 'POSITION_NUM_DEW1', 'POSITION_NUM_DEW2', 'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2', 'NUM_SAMPLE_ON_TOOL2', 'CURR_NUM_SOAKING']
+state_params = ['POWER_1_0', 'AUTO_MODE_STATUS_1_0', 'DEFAULT_STATUS_1_0', 'TOOL_NUM_OR_NAME', 'PATH_NAME', 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL', 'NUM_SAMPLE_ON_TOOL', 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER', 'NUM_OF_PLATE_ON_TOOL', 'WELL_NUM', 'BARCODE_NUM', 'PATH_RUNNING_1_0', 'LN2_REGULATION_RUNNING_1_0', 'LN2_WARMING_RUNNING_1_0', 'ROBOT_SPEED_RATIO', 'PUCK_DET_RESULT_DEW1', 'PUCK_DET_RESULT_DEW2', 'POSITION_NUM_DEW1', 'POSITION_NUM_DEW2', 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL2', 'NUM_SAMPLE_ON_TOOL2', 'CURR_NUM_SOAKING', 'PUCK_TYPE_LID1', 'PUCK_TYPE_LID2', 'PUCK_TYPE_LID3']
 
 di_params = ['CRYOGEN_SENSORS_OK','ESTOP_AND_AIRPRES_OK','COLLISION_SENSOR_OK','CRYOGEN_HIGH_LEVEL_ALARM','CRYOGEN_HIGH_LEVEL','CRYOGEN_LOW_LEVEL','CRYOGEN_LOW_LEVEL_ALARM','CRYOGEN_LIQUID_DETECTION','PRI_GFM','PRI_API','PRI_APL','PRI_SOM','CASSETTE_1_PRESENCE','CASSETTE_2_PRESENCE','CASSETTE_3_PRESENCE','CASSETTE_4_PRESENCE','CASSETTE_5_PRESENCE','CASSETTE_6_PRESENCE','CASSETTE_7_PRESENCE','CASSETTE_8_PRESENCE','CASSETTE_9_PRESENCE','LID_1_OPENED','LID_2_OPENED','LID_3_OPENED','TOOL_OPENED','TOOL_CLOSED','LIMSW1_ROT_GRIP_AXIS','LIMSW2_ROT_GRIP_AXIS','MODBUS_PLC_LIFE_BIT','.','.','LIFE_BIT_COMING_FROM_PLC','ACTIVE_LID_OPENED','NEW_ACTIVE_LID_OPENED','TOOL_CHANGER_OPENED','ACTIVE_CASSETTE_PRESENCE','NEW_ACTIVE_CASSETTE_PRESENCE','ALL_LIDS_CLOSED','.','.','.','.','.','.','.','.','.','PROCESS_INPUT_5','PROCESS_INPUT_6','PROCESS_INPUT_7','PROCESS_INPUT_8','PROCESS_INPUT_9','PROCESS_INPUT_10','PROCESS_INPUT_11','PROCESS_INPUT_12','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','VIRTUAL_INPUT_90','VIRTUAL_INPUT_91','VIRTUAL_INPUT_92','VIRTUAL_INPUT_93','VIRTUAL_INPUT_94','VIRTUAL_INPUT_95','VIRTUAL_INPUT_96','VIRTUAL_INPUT_97','VIRTUAL_INPUT_98','VIRTUAL_INPUT_99']
 
@@ -284,6 +284,10 @@ CATS2TANGO = {
   'POSITION_NUM_DEW1': 'PositionNumberDewar1',
   'POSITION_NUM_DEW2': 'PositionNumberDewar2',
   'CURR_NUM_SOAKING': 'CurrentNumberOfSoaking',
+  'PUCK_TYPE_LID1': 'PuckTypeLid1',
+  'PUCK_TYPE_LID2': 'PuckTypeLid2',
+  'PUCK_TYPE_LID3': 'PuckTypeLid3',
+  'PUCK_TYPE_LID': 'PuckTypeLid',
 
   # DI PARAMS pycats.di_params
   'CRYOGEN_SENSORS_OK': 'di_CryoOK',
@@ -444,6 +448,7 @@ class CS8Connection():
     self.check_paths_grp1 = ['get', 'put', 'put_bcrd', 'get_HT', 'put_HT']
 
     # grp2 contains paths with two passages through diffr areas
+      # note: for unipuck double gripper still it is only one pass for all
     self.check_paths_grp2 = ['getput','getput_bcrd', 'getput_HT']
 
     # get contains paths including a get operation (to detect recovery needed)
@@ -497,7 +502,8 @@ class CS8Connection():
       return self.nb_pucks
 
   def get_puck_types(self):
-      return self.puck_types 
+      p_types = self.puck_types
+      return p_types
 
   def get_puck_presence(self):
       return self.puck_presence 
@@ -915,7 +921,10 @@ class CS8Connection():
                    'POSITION_NUM_DEW2',
                    'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2', 
                    'NUM_SAMPLE_ON_TOOL2',
-                   'CURR_NUM_SOAKING']:
+                   'CURR_NUM_SOAKING',
+                   'PUCK_TYPE_LID1',
+                   'PUCK_TYPE_LID2',
+                   'PUCK_TYPE_LID3']:
         if v == '': v = -1
         else: v = int(v)
       elif key == 'ROBOT_SPEED_RATIO':
@@ -958,6 +967,7 @@ class CS8Connection():
     # MESSAGE
     status_dict['MESSAGE'] = message_ans
 
+
     # DETERMINE CASETTE PRESENCE INFO
     if self.model is MODEL_ISARA: 
         try:
@@ -993,6 +1003,8 @@ class CS8Connection():
     self.is_som = status_dict['PRI_SOM']
     self.is_idle = status_dict['PRO5_IDL']
 
+    self.current_tool = status_dict['TOOL_NUM_OR_NAME']
+
     if self.executing_recovery:
         self.pathinfo['running'] = True
         self.pathinfo['pathname'] = "recovery"
@@ -1000,6 +1012,7 @@ class CS8Connection():
         self.pathinfo['running'] = is_running
         self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
+    self.pathinfo['double_gripper'] = ( self.current_tool.strip().lower()  == 'double')
     self.pathinfo['safe'] = self.pathInSafeArea()
 
     self.check_recovery_needed()
@@ -1008,7 +1021,7 @@ class CS8Connection():
         self.follow_recovery_process()
 
     if self.pathinfo['running']:
-        print("path running   '%(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
+        print("path running   '%(double_gripper)s %(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
 
      
     return status_dict
@@ -1099,7 +1112,10 @@ class CS8Connection():
           self.ri1_count += 1
           self.is_inr1 = False
 
-          if self.pathinfo['pathname'] in self.check_paths_grp1:
+          if self.pathinfo['double_gripper']:
+              if self.ri1_count > 0:
+                  self.is_safe = True
+          elif self.pathinfo['pathname'] in self.check_paths_grp1:
               if self.ri1_count > 0:
                   self.is_safe = True
           elif self.pathinfo['pathname'] in self.check_paths_grp2:
