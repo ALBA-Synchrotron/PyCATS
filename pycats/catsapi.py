@@ -681,11 +681,6 @@ class CS8Connection():
         raise Exception('Transfer command not available for ISARA Sample Changer')
     return self.trajectory('transfer', tool, puck_lid, sample, newpuck_lid, newsample, 0, 0, type, 0, toolcal)
 
-  def pick(self, tool, puck_lid, sample, type):
-    if self.model is not MODEL_ISARA:
-        raise Exception('Transfer command not available for CATS Model Sample Changer')
-    return self.trajectory('pick', tool, puck_lid, sample, 0, 0, 0, 0, type)
-
   def soak(self, tool, puck_lid=None):
     if self.model is MODEL_ISARA:
         return self.trajectory('soak', tool)
@@ -695,6 +690,11 @@ class CS8Connection():
   def dry(self, tool):
     return self.trajectory('dry', tool)
 
+  def dryhome(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('dryhome command not available for ISARA Model Sample Changer')
+    return self.trajectory('dryhome', tool)
+
   def gotodif(self, tool, puck_lid, sample, type, toolcal):
     if self.model is MODEL_ISARA:
         return self.trajectory('gotodif', tool, puck_lid, sample, 0, 0, 0, 0, type)
@@ -702,10 +702,12 @@ class CS8Connection():
         return self.trajectory('gotodif', tool, puck_lid, sample, 0, 0, 0, 0, type, 0, toolcal)
 
   def pick(self, tool, puck_or_lid, sample, type):
+    return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
+
+  def getputpick(self, tool, puck_lid, sample, type, x_shift, y_shift, z_shift):
     if self.model is MODEL_ISARA:
-        return self.trajectory('pick', tool, puck_or_lid, sample, 0, 0, 0, 0, type)
-    else:
-        raise Exception('Pick command not available for CATS Sample Changer')
+      raise Exception('getpuckpick command not available for ISARA Model Sample Changer')
+    return self.trajectory('getputpick', tool, puck_lid, sample, 0, 0, 0, 0, type, 0, 0, x_shift, y_shift, z_shift)
 
   def rd_position(self, tool, puck_lid):
     if self.model is MODEL_ISARA:
@@ -727,6 +729,16 @@ class CS8Connection():
     ret = self.trajectory('setdiffr', puck_lid, sample, type)
     print("   - returns:  %s" % ret)
     return ret
+
+  def cap_on_lid(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('capOnLid command not available for ISARA Model Sample Changer')
+    return self.trajectory('capOnLid', tool)
+
+  def cap_off_lid(self, tool):
+    if self.model is MODEL_ISARA:
+      raise Exception('capOffLid command not available for ISARA Model Sample Changer')
+    return self.trajectory('capOffLid', tool)
 
   def toolcalibration(self, tool):
     return self.trajectory('toolcal', tool)  
@@ -786,8 +798,6 @@ class CS8Connection():
     return self.trajectory('settool', puck_lid, sample, type)
 
   def settool2(self, puck_lid, sample, type):
-    if self.model is not MODEL_ISARA:
-        raise Exception('settool2 command not available for CATS Model Sample Changer')
     return self.trajectory('settool2', puck_lid, sample, type)
 
   # GOTODIF ALREADY DEFINED FOR PINS!!!!
@@ -820,6 +830,8 @@ class CS8Connection():
   def closelid4(self): return self.operate('closelid4')
   def opentool(self): return self.operate('opentool')
   def closetool(self): return self.operate('closetool')
+  def opentool2(self): return self.operate('opentool2')
+  def closetool2(self): return self.operate('closetool2')
   def magneton(self): return self.operate('magneton')
   def magnetoff(self): return self.operate('magnetoff')
   def heateron(self): return self.operate('heateron')

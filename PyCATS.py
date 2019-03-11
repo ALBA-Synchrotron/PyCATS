@@ -32,8 +32,7 @@ Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
        soak(tool, lid)  - CATS
 
     commands ISARA only
-       - settool2()
-       - pick()
+       - None
 
     commands CATS only
        - transfer()
@@ -416,11 +415,12 @@ class CATS(PyTango.Device_4Impl):
     tool, lid, sample, newlid, newsample, type, toolcal = argin
     return self.cs8connection.transfer(tool, lid, sample, newlid, newsample, type, toolcal)
   def pick(self, argin):
-     if self.cs8connection.get_model() == "ISARA":
-         tool, puck, sample, type = argin
-         return self.cs8connection.pick(tool, puck, sample, type)
-     else:
-        return "Pick command not available for CATS model"
+    tool, puck, sample, type = argin
+    return self.cs8connection.pick(tool, puck, sample, type)
+  def getpuckpick(self, argin):
+    tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+    return self.cs8connection.getputpick(tool, puck_lid, sample, type,
+                                         x_shift, y_shift, z_shift)
   def soak(self, argin):
     if self.cs8connection.get_model() == "ISARA":
         tool = argin[0]
@@ -431,6 +431,9 @@ class CATS(PyTango.Device_4Impl):
   def dry(self, argin):
     tool = argin
     return self.cs8connection.dry(tool)
+  def dryhome(self, argin):
+    tool = argin
+    return self.cs8connection.dryhome(tool)
   def gotodif(self, argin):
     tool, puck_lid, sample, type, toolcal = argin
     return self.cs8connection.gotodif(tool, puck_lid, sample, type, toolcal)
@@ -459,10 +462,14 @@ class CATS(PyTango.Device_4Impl):
     puck_lid, sample, type = argin
     return self.cs8connection.settool(puck_lid, sample, type)
   def settool2(self, argin):
-    if self.cs8connection.get_model() != "ISARA":
-        return "settool2 is not a command for CATS model"
     puck_lid, sample, type = argin
     return self.cs8connection.settool(puck_lid, sample, type)
+  def cap_on_lid(self, argin):
+    tool = argin
+    return self.cs8connection.cap_on_lid(tool)
+  def cap_off_lid(self, argin):
+    tool = argin
+    return self.cs8connection.cap_off_lid(tool)
 
   # 3.6.5.3 Crystallization plate commands
   def putplate(self, argin):
@@ -530,6 +537,8 @@ class CATS(PyTango.Device_4Impl):
   def closelid4(self): return self.cs8connection.closelid4()
   def opentool(self): return self.cs8connection.opentool()
   def closetool(self): return self.cs8connection.closetool()
+  def opentool2(self): return self.cs8connection.opentool2()
+  def closetool2(self): return self.cs8connection.closetool2()
   def magneton(self): return self.cs8connection.magneton()
   def magnetoff(self): return self.cs8connection.magnetoff()
   def heateron(self): return self.cs8connection.heateron()
@@ -905,9 +914,11 @@ class CATSClass(PyTango.DeviceClass):
     'barcode': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
     'back': [[PyTango.DevVarStringArray, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0'], [PyTango.DevString],],
     'transfer': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:new puck or lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [PyTango.DevString],],
-    'pick': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
+    'pick': [[PyTango.DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'],  [PyTango.DevString],],
+    'getpuckpick': [[PyTango.DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'],  [PyTango.DevString], ],
     'soak': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
     'dry': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
+    'dryhome': [[PyTango.DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString], ],
     'gotodif': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [PyTango.DevString],],
     'rd_position': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [PyTango.DevString],],
     'rd_load': [[PyTango.DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:new puck or lid number'], [PyTango.DevString],],
@@ -956,6 +967,8 @@ class CATSClass(PyTango.DeviceClass):
     'closelid4': [[PyTango.DevVoid],[PyTango.DevString],],
     'opentool': [[PyTango.DevVoid],[PyTango.DevString],],
     'closetool': [[PyTango.DevVoid],[PyTango.DevString],],
+    'opentool2': [[PyTango.DevVoid],[PyTango.DevString],],
+    'closetool2': [[PyTango.DevVoid],[PyTango.DevString],],
     'magneton': [[PyTango.DevVoid],[PyTango.DevString],],
     'magnetoff': [[PyTango.DevVoid],[PyTango.DevString],],
     'heateron': [[PyTango.DevVoid],[PyTango.DevString],],
@@ -974,6 +987,8 @@ class CATSClass(PyTango.DeviceClass):
     'clear_memory': [[PyTango.DevVoid],[PyTango.DevString],],
     'reset_parameters': [[PyTango.DevVoid],[PyTango.DevString],],
     'resetmotion': [[PyTango.DevVoid],[PyTango.DevString],],
+    'cap_on_lid': [[PyTango.DevUShort, 'tool = 6:Soaking cap'], [PyTango.DevString], ],
+    'cap_off_lid': [[PyTango.DevUShort, 'tool = 6:Soaking cap'], [PyTango.DevString], ],
     'toolcalibration': [[PyTango.DevUShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [PyTango.DevString],],
 
     # 3.6.5.7 Status commands
