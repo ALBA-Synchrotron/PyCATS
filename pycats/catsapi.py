@@ -287,6 +287,7 @@ CATS2TANGO = {
   'PUCK_TYPE_LID1': 'PuckTypeLid1',
   'PUCK_TYPE_LID2': 'PuckTypeLid2',
   'PUCK_TYPE_LID3': 'PuckTypeLid3',
+  'PUCK_TYPE_LID': 'PuckTypeLid',
 
   # DI PARAMS pycats.di_params
   'CRYOGEN_SENSORS_OK': 'di_CryoOK',
@@ -447,6 +448,7 @@ class CS8Connection():
     self.check_paths_grp1 = ['get', 'put', 'put_bcrd', 'get_HT', 'put_HT']
 
     # grp2 contains paths with two passages through diffr areas
+      # note: for unipuck double gripper still it is only one pass for all
     self.check_paths_grp2 = ['getput','getput_bcrd', 'getput_HT']
 
     # get contains paths including a get operation (to detect recovery needed)
@@ -500,7 +502,8 @@ class CS8Connection():
       return self.nb_pucks
 
   def get_puck_types(self):
-      return self.puck_types 
+      p_types = self.puck_types
+      return p_types
 
   def get_puck_presence(self):
       return self.puck_presence 
@@ -964,6 +967,7 @@ class CS8Connection():
     # MESSAGE
     status_dict['MESSAGE'] = message_ans
 
+
     # DETERMINE CASETTE PRESENCE INFO
     if self.model is MODEL_ISARA: 
         try:
@@ -999,6 +1003,8 @@ class CS8Connection():
     self.is_som = status_dict['PRI_SOM']
     self.is_idle = status_dict['PRO5_IDL']
 
+    self.current_tool = status_dict['TOOL_NUM_OR_NAME']
+
     if self.executing_recovery:
         self.pathinfo['running'] = True
         self.pathinfo['pathname'] = "recovery"
@@ -1006,6 +1012,7 @@ class CS8Connection():
         self.pathinfo['running'] = is_running
         self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
+    self.pathinfo['double_gripper'] = ( self.current_tool.strip().lower()  == 'double')
     self.pathinfo['safe'] = self.pathInSafeArea()
 
     self.check_recovery_needed()
@@ -1014,7 +1021,7 @@ class CS8Connection():
         self.follow_recovery_process()
 
     if self.pathinfo['running']:
-        print("path running   '%(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
+        print("path running   '%(double_gripper)s %(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
 
      
     return status_dict
@@ -1105,7 +1112,10 @@ class CS8Connection():
           self.ri1_count += 1
           self.is_inr1 = False
 
-          if self.pathinfo['pathname'] in self.check_paths_grp1:
+          if self.pathinfo['double_gripper']:
+              if self.ri1_count > 0:
+                  self.is_safe = True
+          elif self.pathinfo['pathname'] in self.check_paths_grp1:
               if self.ri1_count > 0:
                   self.is_safe = True
           elif self.pathinfo['pathname'] in self.check_paths_grp2:
