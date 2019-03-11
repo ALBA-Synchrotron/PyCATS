@@ -561,7 +561,7 @@ class CATS(PyTango.Device_4Impl):
   # 
   def clear_memory(self): return self.cs8connection.clear_memory()
   def reset_parameters(self): return self.cs8connection.reset_parameters()
-  def resetmotion(self): return self.cs8connection.resetMotion()
+  def resetmotion(self): return self.cs8connection.resetmotion()
 
   def toolcalibration(self, argin): 
     tool = argin
