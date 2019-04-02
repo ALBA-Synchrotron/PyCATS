@@ -75,8 +75,8 @@ class CATS(PyTango.Device_4Impl):
   """
   def __init__(self, klass, name):
     PyTango.Device_4Impl.__init__(self, klass, name)
-    
-    self.cs8connection = pycats.CS8Connection()
+    logger = self.get_logger()
+    self.cs8connection = pycats.CS8Connection(tango_logger=logger)
     self.status_update_thread = None
     self.status_dict = {}
     self.init_device()
@@ -88,7 +88,7 @@ class CATS(PyTango.Device_4Impl):
     self.set_change_event('State', True, False)
     self.set_change_event('Status', True, False)
 
-    print 'Ready to accept requests.'
+    logger.info('Ready to accept requests.')
 
   def init_device(self):
     self.get_device_properties(self.get_device_class())

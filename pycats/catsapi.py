@@ -425,7 +425,9 @@ for k,v in CATS2TANGO.iteritems(): TANGO2CATS[v] = k
 
 
 class CS8Connection():
-  def __init__(self, host=None, operate_port=None, monitor_port=None, model=None):
+  def __init__(self, host=None, operate_port=None, monitor_port=None,
+               tango_logger=None, model=None):
+    self._init_logging(tango_logger)
     self.sock_op = None
     self.lock_op = Lock()
     self.sock_mon = None
@@ -470,8 +472,31 @@ class CS8Connection():
     self.puck_before_path = -1
     self.latest_path = ""
 
+    self.info("Init CATS connection object")
+
   def __del__(self):
     self.disconnect()
+
+  def _init_logging(self, logger):
+        if logger:
+            self.debug = logger.debug
+            self.info = logger.info
+            self.warn = logger.warn
+            self.error = logger.error
+            self.debug("Injecting log to tango logger")
+        else:
+            import logging
+            logger = logging.Logger(__name__)
+            ch = logging.StreamHandler()
+            formatter = logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s")
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
+            self.debug = logger.debug
+            self.info = logger.info
+            self.warn = logger.warning
+            self.error = logger.error
+            self.debug("Creating new logger %s" % __name__)
 
   def set_model(self, model):
     if model in ["Isara", "isara", "i"]:
@@ -525,6 +550,12 @@ class CS8Connection():
     self.sock_mon.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
     self.sock_mon.connect((self.host, self.monitor_port))
 
+    self.debug("Operation socket created (host = %s , port = %s" % (
+        self.host, self.operate_port))
+    self.debug("Monitor socket created (host = %s , port = %s" % (
+        self.host, self.monitor_port))
+
+
   def disconnect(self):
     if self.sock_op is not None:
       self.sock_op.close()
@@ -535,6 +566,7 @@ class CS8Connection():
     # if you disconnect and connect immediately, some times you recieve '[Errno 104] Connection reset by peer'
     import time
     time.sleep(0.05)
+    self.debug("Disconnected from CATS server")
 
 
   def _query(self, sock, cmd):
@@ -571,14 +603,21 @@ class CS8Connection():
     received = received.replace('\r','')
     cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
     if not received.startswith(cmd_name) and cmd != 'message':
-        raise Exception('Answer is not the one expected.\nCmd: %s\nAns: %s' % (cmd, received))
-
+        msg = 'Answer is not the one expected.\nCmd: %s\nAns: %s' % (cmd, received)
+        self.error(msg)
+        raise Exception(msg)
+    else:
+#        self.debug("Cmd: %s\nAns: %s" % (cmd, received))
+        pass
     return received
 
   ### OPERATE HELPER FUNCTIONS ###
   def operate(self, cmd):
     with self.lock_op:
-      return self._query(self.sock_op, cmd)
+#      return self._query(self.sock_op, cmd)
+      received = self._query(self.sock_op, cmd)
+      self.debug("Cmd: %s, Ans: %s" % (cmd, received)) 
+      return received
 
   # 3.6.5.1 General commands
   def powerOn(self): return self.operate('on')
@@ -620,7 +659,7 @@ class CS8Connection():
       args = [tool, puck_lid, sample]
       args_str = ','.join(map(str, args))
       cmd_and_args = cmd + '(' + args_str + ')'
-      print(" sending to operate socket:  %s" % cmd_and_args)
+      self.debug("sending operation: %s" % cmd_and_args)
     else:
       if tool not in (2,3,5) :
            raise Exception('SPINE, DoubleGripper and PLATES allowed. Tool is %s' % tool)
@@ -1032,6 +1071,7 @@ class CS8Connection():
           if self.is_som:
               self.recovery_type = RECOVER_GET_FAILED
               self._is_recovery_needed = True
+              self.warn("RECOVER_GET_FAILED needed!")
               return 
 
       self._is_recovery_needed = False
@@ -1054,10 +1094,10 @@ class CS8Connection():
            if self.recovery_phase == 0:
                # abort
                self.abort()
-               print "recovering from GET_FAILED. Phase0 (abort)"
+               self.warn("Recovering from GET_FAILED. Phase0 (abort)")
                self.recovery_phase = 1
            elif self.recovery_phase == 1:
-               print "recovering from GET_FAILED. Phase1 (waiting abort)"
+               self.warn("Recovering from GET_FAILED. Phase1 (waiting abort)")
                # waiting abort to finish
                if self.is_idle:
                    self.recovery_phase = 2
@@ -1068,13 +1108,13 @@ class CS8Connection():
                else:
                    puck_lid = self.lid_before_path
                sample = self.sample_before_path 
-               print "recovering from GET_FAILED. Phase2 (setondiff %s,%s)" % (puck_lid, sample)
+               self.warn("Recovering from GET_FAILED. Phase2 (setondiff %s,%s)" % (puck_lid, sample))
                self.setondiff(puck_lid, sample, 0)
                # home
                self.home(2)
                self.recovery_phase = 3
            else:
-               print "recovering from GET_FAILED. Phase3 (end recovery)" 
+               self.warn("recovering from GET_FAILED. Phase3 (end recovery)")
                self.executing_recovery = False
 
   def pathInSafeArea(self):
