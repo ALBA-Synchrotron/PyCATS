@@ -1,0 +1,13 @@
+Source: pycats
+Maintainer: jandreu <jandreu@cells.es>
+Section: python
+Priority: optional
+Build-Depends: dh-python, python-setuptools (>= 0.6b3), python-all (>= 2.6.6-3), debhelper (>= 9)
+Standards-Version: 3.9.8
+
+Package: python-pycats
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+Description: Library to control and monitor the CATS Irelec sample change
+ This library implements the API from the CATS Irelec server. The library provides control and monitor of the CATS sample changer.
+

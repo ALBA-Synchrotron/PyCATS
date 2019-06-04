@@ -1,0 +1,2 @@
+version=4
+opts=filenamemangle=s/.*\/(\d\S+)\/archive\.tar\.gz/pycats_pkg-$1\.tar\.gz/g   https://git.cells.es/controls/pycats_pkg/tags?sort=updated_desc .*/(\d\S+)/archive\.tar\.gz
