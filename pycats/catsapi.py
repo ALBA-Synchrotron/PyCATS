@@ -571,6 +571,7 @@ class CS8Connection():
 
   def _query(self, sock, cmd):
     sock.send(cmd+'\r')
+    self._last_command_sent = cmd
     received = sock.recv(1024)
     # !!! WARNING !!!
     # THERE IS NO CONTROL OF THE END OF MESSAGE
@@ -1079,6 +1080,9 @@ class CS8Connection():
             
   def is_recovery_needed(self):
       return self._is_recovery_needed
+
+  def get_last_command_sent(self):
+      return self._last_command_sent
 
   def start_recovery(self):
       if not self._is_recovery_needed:
