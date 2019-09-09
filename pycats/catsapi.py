@@ -472,6 +472,8 @@ class CS8Connection():
     self.puck_before_path = -1
     self.latest_path = ""
 
+    self._last_command_sent = "" 
+    
     self.info("Init CATS connection object")
 
   def __del__(self):
@@ -571,7 +573,6 @@ class CS8Connection():
 
   def _query(self, sock, cmd):
     sock.send(cmd+'\r')
-    self._last_command_sent = cmd
     received = sock.recv(1024)
     # !!! WARNING !!!
     # THERE IS NO CONTROL OF THE END OF MESSAGE
@@ -617,7 +618,8 @@ class CS8Connection():
     with self.lock_op:
 #      return self._query(self.sock_op, cmd)
       received = self._query(self.sock_op, cmd)
-      self.debug("Cmd: %s, Ans: %s" % (cmd, received)) 
+      self.debug("Cmd: %s, Ans: %s" % (cmd, received))
+      self._last_command_sent = cmd 
       return received
 
   # 3.6.5.1 General commands
