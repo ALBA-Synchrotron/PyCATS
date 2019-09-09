@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 
-__version__ = '1.4.0'
+__version__ = '1.5.0'
 
 name = 'pycats'
 
