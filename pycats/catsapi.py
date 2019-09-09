@@ -472,6 +472,8 @@ class CS8Connection():
     self.puck_before_path = -1
     self.latest_path = ""
 
+    self._last_command_sent = "" 
+    
     self.info("Init CATS connection object")
 
   def __del__(self):
@@ -616,7 +618,8 @@ class CS8Connection():
     with self.lock_op:
 #      return self._query(self.sock_op, cmd)
       received = self._query(self.sock_op, cmd)
-      self.debug("Cmd: %s, Ans: %s" % (cmd, received)) 
+      self.debug("Cmd: %s, Ans: %s" % (cmd, received))
+      self._last_command_sent = cmd 
       return received
 
   # 3.6.5.1 General commands
@@ -1079,6 +1082,9 @@ class CS8Connection():
             
   def is_recovery_needed(self):
       return self._is_recovery_needed
+
+  def get_last_command_sent(self):
+      return self._last_command_sent
 
   def start_recovery(self):
       if not self._is_recovery_needed:

@@ -202,6 +202,7 @@ class CATS(PyTango.Device_4Impl):
   def read_PathRunning(self, attr): attr.set_value(self.status_dict[TANGO2CATS['PathRunning']])
   def read_PathSafe(self,attr): attr.set_value(self.cs8connection.is_path_safe())
   def read_RecoveryNeeded(self,attr): attr.set_value(self.cs8connection.is_recovery_needed())
+  def read_LastCommandSent(self, attr): attr.set_value(self.cs8connection.get_last_command_sent())
   def read_LN2Regulating(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LN2Regulating']])
   def read_LN2Warming(self, attr): attr.set_value(self.status_dict[TANGO2CATS['LN2Warming']])
   def read_SpeedRatio(self, attr): attr.set_value(self.status_dict[TANGO2CATS['SpeedRatio']])
@@ -628,6 +629,7 @@ class CATSClass(PyTango.DeviceClass):
     'PathRunning':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'PathSafe':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'RecoveryNeeded':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
+    'LastCommandSent': [[PyTango.DevString, PyTango.SCALAR, PyTango.READ]],
     'LN2Regulating':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'LN2Warming':[[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ]],
     'SpeedRatio':[[PyTango.DevFloat, PyTango.SCALAR, PyTango.READ]],
