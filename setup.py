@@ -1,46 +1,62 @@
 #!/usr/bin/env python
-from setuptools import setup, find_packages
+import sys
+from setuptools import setup
+from setuptools import find_packages
 
+# The version is updated automatically with bumpversion
+# Do not update manually
 __version__ = '1.5.0'
 
-name = 'pycats'
+requirements = []
 
-package_list = []
+setup_requirements = []
 
-console_scripts = []
+TESTING = any(x in sys.argv for x in ["test", "pytest"])
+if TESTING:
+    setup_requirements += ['pytest-runner']
+test_requirements = ['pytest', 'pytest-cov']
 
-gui_scripts = []
-
-entry_points = {
-        'console_scripts': console_scripts,
-        'gui_scripts': gui_scripts
-    }
-
-author = 'Guifre Cuni'
-author_email = 'ctbeamlines@cells.es'
-platforms = 'all'
-license = 'GPL-3.0+'
-
-description = 'Library to control and monitor the CATS Irelec sample changer.'
-
-long_description = 'This library implements the API from the CATS Irelec ' \
-                   'server. The library provides control and monitor of the ' \
-                   'CATS sample changer.'
+SPHINX = any(x in sys.argv for x in ["build_sphinx"])
+if SPHINX:
+    setup_requirements += ['sphinx', 'sphinx-argparse', 'sphinx_rtd_theme']
 
 setup(
-    name=name,
+    name="pycats",
+    description='Library for the CATS Irelec sample changer.',
     version=__version__,
+    author="Guifre Cuni",
+    author_email="ctbeamlines@cells.es",
+    url="https://github.com/ALBA-Synchrotron/PyCATS",
     packages=find_packages(),
-    package_dir={},
-    entry_points=entry_points,
-    author=author,
-    author_email=author_email,
-    description=description,
-    long_description=long_description,
-    url='',
-    platforms=platforms,
-    package_data={'': package_list},
+    # package_data={'': package_list},
     include_package_data=True,
-    install_requires=['setuptools', 'python'],
-    requires=['pkg_resources'],
+    license="GPLv3",
+    platforms='all',
+    long_description="""
+    This library implements the API from the CATS Irelec server.
+     The library provides control and monitor of the CATS sample changer.
+    """,
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'Intended Audience :: End Users/Desktop',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Natural Language :: English',
+        'Operating System :: POSIX',
+        'Operating System :: Microsoft :: Windows',
+        'Programming Language :: Python :: 2.7',
+        'Topic :: Communications',
+        'Topic :: Software Development :: Libraries',
+    ],
+    entry_points={
+        'console_scripts': [
+            'PyCATS = PyCATS.tango:main [tango]',
+
+        ]
+    },
+    install_requires=[requirements],
+    setup_requires=setup_requirements,
+    tests_require=test_requirements,
+    extras_require={"tango": ['pytango']},
+    python_requires='=2.7',
 )
