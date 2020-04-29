@@ -50,7 +50,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'PyCATS = PyCATS.tango:main [tango]',
+            'PyCATS = pycats.tango.server:main [tango]',
 
         ]
     },
@@ -58,5 +58,5 @@ setup(
     setup_requires=setup_requirements,
     tests_require=test_requirements,
     extras_require={"tango": ['pytango']},
-    python_requires='=2.7',
+    python_requires='>=2.7, <3',
 )
