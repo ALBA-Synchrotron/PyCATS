@@ -2,19 +2,24 @@
 
 import sys
 import datetime
-from PyQt4 import QtGui, QtCore
+import click
 
-import PyTango
+from PyQt5.QtWidgets import (QVBoxLayout, QGridLayout, QLabel, QFrame,
+                             QDoubleSpinBox, QLineEdit, QCheckBox, QScrollArea,
+                             QApplication, QTextEdit)
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot, QSize
+from tango import DeviceProxy
+
 from ..core import di_params, do_params, state_params, position_params
 from ..help import di_help, do_help, message_help
 
 
-class CS8State(QtCore.QObject):
+class CS8State(QObject):
 
-    __pyqtSignals__ = ('paramChanged(QString)')
+    paramChanged = pyqtSignal('QString')
 
     def __init__(self, parent=None):
-        QtCore.QObject.__init__(self, parent)
+        QObject.__init__(self, parent)
 
         self.state = []
         for v in state_params:
@@ -53,16 +58,12 @@ class CS8State(QtCore.QObject):
             previous_value = values[index]
             values[index] = value
             if previous_value != value:
-                self.emit(
-                    QtCore.SIGNAL('paramChanged(QString)'),
-                    QtCore.QString(param))
+                self.paramChanged.emit(str(param))
         if param == 'message':
             prev_message = self.message
             self.message = value
             if prev_message != self.message:
-                self.emit(
-                    QtCore.SIGNAL('paramChanged(QString)'),
-                    QtCore.QString(param))
+                self.paramChanged.emit(str(param))
 
     def set_values(self, params_list, values):
         for i in range(len(params_list)):
@@ -92,21 +93,20 @@ class CS8State(QtCore.QObject):
         return message_help[message]
 
 
-class CS8_Panel(QtGui.QFrame):
+class CS8_Panel(QFrame):
     """ """
 
     def __init__(self, parent=None, cs8=None):
         """ """
-        QtGui.QFrame.__init__(self, parent)
+        QFrame.__init__(self, parent)
         self.cs8 = cs8
 
         self.widget_controllers = {}
         self.build_contents()
-        self.setMinimumSize(QtCore.QSize(1180, 700))
-        QtCore.QObject.connect(self.cs8, QtCore.SIGNAL(
-            'paramChanged(QString)'), self.paramChanged)
+        self.setMinimumSize(QSize(1180, 700))
+        self.cs8.paramChanged.connect(self.paramChanged)
 
-    @QtCore.pyqtSignature('paramChanged(QString)')
+    @pyqtSlot('QString')
     def paramChanged(self, param):
         param = str(param)
         controller = self.widget_controllers[param]
@@ -142,13 +142,13 @@ class CS8_Panel(QtGui.QFrame):
 
     def build_contents(self):
         """Initialize all the ui components."""
-        # self.setLayout(QtGui.QGridLayout())
+        # self.setLayout(QGridLayout())
         # self.layout().setContentsMargins(0,0,0,0)
-        self.setLayout(QtGui.QVBoxLayout())
+        self.setLayout(QVBoxLayout())
 
         # --- POSITION ---
-        position_frame = QtGui.QFrame()
-        grid_layout = QtGui.QGridLayout()
+        position_frame = QFrame()
+        grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
         position_frame.setLayout(grid_layout)
         col = 0
@@ -156,9 +156,9 @@ class CS8_Panel(QtGui.QFrame):
             if p != '.':
                 value = self.cs8.get(p)
                 label_text = p
-                label = QtGui.QLabel(label_text)
+                label = QLabel(label_text)
                 label.font().setPointSize(8)
-                widget = QtGui.QDoubleSpinBox()
+                widget = QDoubleSpinBox()
                 widget.setFixedWidth(100)
                 widget.setMinimum(-99999)
                 widget.setMaximum(99999)
@@ -173,8 +173,8 @@ class CS8_Panel(QtGui.QFrame):
         self.layout().addWidget(position_frame)
 
         # --- STATE ---
-        state_frame = QtGui.QFrame()
-        grid_layout = QtGui.QGridLayout()
+        state_frame = QFrame()
+        grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
         state_frame.setLayout(grid_layout)
         row = 0
@@ -191,25 +191,25 @@ class CS8_Panel(QtGui.QFrame):
             elif len(p) < 100:
                 label_text = p[:25] + '\n' + p[25:50] + \
                     '\n' + p[50:75] + '\n' + p[75:]
-            label = QtGui.QLabel(label_text)
+            label = QLabel(label_text)
             label.font().setPointSize(8)
             controller = None
 
             if p.endswith('NAME'):
-                widget = QtGui.QLineEdit()
+                widget = QLineEdit()
                 widget.setFixedWidth(100)
                 controller = WidgetController(self, p, widget)
                 widget.setEnabled(False)
             elif p.endswith('1_0'):
                 # It is a boolean flag
-                widget = QtGui.QCheckBox()
+                widget = QCheckBox()
                 widget.setFixedSize(15, 15)
                 checked = (value == '1')
                 widget.setChecked(checked)
                 controller = WidgetController(self, p, widget)
                 widget.setEnabled(False)
             else:
-                widget = QtGui.QDoubleSpinBox()
+                widget = QDoubleSpinBox()
                 widget.setFixedWidth(100)
                 widget.setMinimum(-99999.0)
                 widget.setMaximum(99999.0)
@@ -223,15 +223,15 @@ class CS8_Panel(QtGui.QFrame):
                 col = 0
                 row += 1
             self.widget_controllers[p] = controller
-        state_sa = QtGui.QScrollArea(self)
+        state_sa = QScrollArea(self)
         state_sa.setWidget(state_frame)
-        state_label = QtGui.QLabel('State')
+        state_label = QLabel('State')
         # self.layout().addWidget(state_sa,1,0)
         self.layout().addWidget(state_sa)
 
         # --- DI ---
-        di_frame = QtGui.QFrame()
-        grid_layout = QtGui.QGridLayout()
+        di_frame = QFrame()
+        grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
         di_frame.setLayout(grid_layout)
         row = 0
@@ -239,22 +239,12 @@ class CS8_Panel(QtGui.QFrame):
         for p in di_params:
             if p != '.':
                 value = self.cs8.get(p)
-                #label_text = None
-                # if len(p) < 25 :
-                #    label_text = p
-                # elif len(p) < 50:
-                #    label_text = p[:25]+'\n'+p[25:]
-                # elif len(p) < 75:
-                #    label_text = p[:25]+'\n'+p[25:50]+'\n'+p[50:]
-                # elif len(p) < 100:
-                #    label_text = p[:25]+'\n'+p[25:50]+'\n'+p[50:75]+'\n'+p[75:]
                 label_text = p
-                label = QtGui.QLabel(label_text)
+                label = QLabel(label_text)
                 label.font().setPointSize(8)
-                # 01/06/2011 JJ requirement, for USED PRIs, set it bold
                 if label_text.startswith('PRI'):
                     label.font().setBold(True)
-                widget = QtGui.QCheckBox()
+                widget = QCheckBox()
                 widget.setFixedSize(15, 15)
                 checked = (value == '1')
                 widget.setChecked(checked)
@@ -273,15 +263,15 @@ class CS8_Panel(QtGui.QFrame):
                     row += 1
                 self.widget_controllers[p] = controller
 
-        di_sa = QtGui.QScrollArea(self)
+        di_sa = QScrollArea(self)
         di_sa.setWidget(di_frame)
-        di_label = QtGui.QLabel('Digital Inputs')
+        di_label = QLabel('Digital Inputs')
         # self.layout().addWidget(di_sa,2,0)
         self.layout().addWidget(di_sa)
 
         # --- DO ---
-        do_frame = QtGui.QFrame()
-        grid_layout = QtGui.QGridLayout()
+        do_frame = QFrame()
+        grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
         do_frame.setLayout(grid_layout)
         row = 0
@@ -289,23 +279,14 @@ class CS8_Panel(QtGui.QFrame):
         for p in do_params:
             if p != '.':
                 value = self.cs8.get(p)
-                #label_text = None
-                # if len(p) < 25 :
-                #    label_text = p
-                # elif len(p) < 50:
-                #    label_text = p[:25]+'\n'+p[25:]
-                # elif len(p) < 75:
-                #    label_text = p[:25]+'\n'+p[25:50]+'\n'+p[50:]
-                # elif len(p) < 100:
-                #    label_text = p[:25]+'\n'+p[25:50]+'\n'+p[50:75]+'\n'+p[75:]
                 label_text = p
-                label = QtGui.QLabel(label_text)
+                label = QLabel(label_text)
                 label.font().setPointSize(8)
                 # 01/06/2011 JJ requirement, for USED PROs, set it bold
                 if label_text.startswith(
                         'PRO') and not label_text.startswith('PROCESS'):
                     label.font().setBold(True)
-                widget = QtGui.QCheckBox()
+                widget = QCheckBox()
                 widget.setFixedSize(15, 15)
                 checked = (value == '1')
                 widget.setChecked(checked)
@@ -323,19 +304,19 @@ class CS8_Panel(QtGui.QFrame):
                     col = 0
                     row += 1
                 self.widget_controllers[p] = controller
-        do_sa = QtGui.QScrollArea(self)
+        do_sa = QScrollArea(self)
         do_sa.setWidget(do_frame)
-        do_label = QtGui.QLabel('Digital Outputs')
+        do_label = QLabel('Digital Outputs')
         # self.layout().addWidget(do_sa,3,0)
         self.layout().addWidget(do_sa)
 
         # --- LOG ---
-        self.log = QtGui.QTextEdit()
+        self.log = QTextEdit()
         # self.layout().addWidget(self.log,4,0)
         self.layout().addWidget(self.log)
 
         # --- STATUS MESSAGE ---
-        self.msg_lbl = QtGui.QLabel()
+        self.msg_lbl = QLabel()
         p = 'message'
         controller = WidgetController(self, p, self.msg_lbl)
         self.widget_controllers[p] = controller
@@ -351,19 +332,19 @@ class WidgetController:
         self.reset_stylesheet_timer = None
 
     def valueChanged(self, value):
-        if isinstance(self.widget, QtGui.QCheckBox):
+        if isinstance(self.widget, QCheckBox):
             flag = (int(value) == 1)
             self.widget.setChecked(flag)
             widget_class = 'QCheckBox'
-        elif isinstance(self.widget, QtGui.QLineEdit):
+        elif isinstance(self.widget, QLineEdit):
             self.widget.setText(value)
             widget_class = 'QLineEdit'
-        elif isinstance(self.widget, QtGui.QDoubleSpinBox):
+        elif isinstance(self.widget, QDoubleSpinBox):
             if value == '' or value is None:
                 value = 'nan'
             self.widget.setValue(float(value))
             widget_class = 'QDoubleSpinBox'
-        elif isinstance(self.widget, QtGui.QLabel):
+        elif isinstance(self.widget, QLabel):
             self.widget.setText(value)
             widget_class = 'QLabel'
         else:
@@ -374,24 +355,15 @@ class WidgetController:
             '%s { background-color: yellow }' %
             widget_class)
         if self.reset_stylesheet_timer is not None:
-            QtCore.QObject.disconnect(
-                self.reset_stylesheet_timer,
-                QtCore.SIGNAL("timeout()"),
-                self.resetStyleSheet)
-        self.reset_stylesheet_timer = QtCore.QTimer(self.parent)
+            self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
+        self.reset_stylesheet_timer = QTimer(self.parent)
         self.reset_stylesheet_timer.setSingleShot(True)
-        QtCore.QObject.connect(
-            self.reset_stylesheet_timer,
-            QtCore.SIGNAL("timeout()"),
-            self.resetStyleSheet)
+        self.reset_stylesheet_timer.timeout.connect(self.resetStyleSheet)
         self.reset_stylesheet_timer.start(10000)
 
     def resetStyleSheet(self):
         self.widget.setStyleSheet('')
-        QtCore.QObject.disconnect(
-            self.reset_stylesheet_timer,
-            QtCore.SIGNAL("timeout()"),
-            self.resetStyleSheet)
+        self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
 
 
 class MonitorCS8(QtGui.QApplication):
@@ -404,11 +376,8 @@ class MonitorCS8(QtGui.QApplication):
 
         self.cats_dev = PyTango.DeviceProxy('bl13/eh/cats')
 
-        update_timer = QtCore.QTimer()
-        QtCore.QObject.connect(
-            update_timer,
-            QtCore.SIGNAL('timeout()'),
-            self.update_status)
+        update_timer = QTimer()
+        update_timer.timeout.connect(self.update_status)
         update_timer.start(500)
         sys.exit(self.exec_())
 
