@@ -3,7 +3,8 @@ import struct
 from threading import Lock
 
 
-__all__ = ['CS8Connection']
+__all__ = ['CS8Connection', 'di_params', 'do_params', 'state_params',
+           'position_params']
 
 
 
