@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import sys
 import PyTango
 import threading
@@ -91,7 +91,7 @@ class CATS(PyTango.Device_4Impl):
         self.init_device()
 
         # Tell Tango that the attributes have events
-        for attr_name in self.get_device_class().attr_list.keys():
+        for attr_name in list(self.get_device_class().attr_list.keys()):
             self.set_change_event(attr_name, True, False)
 
         self.set_change_event('State', True, False)
@@ -132,7 +132,7 @@ class CATS(PyTango.Device_4Impl):
 
     def processStatusDict(self, new_status_dict):
         path_changed = False
-        for catsk, new_value in new_status_dict.iteritems():
+        for catsk, new_value in new_status_dict.items():
             new_value = new_status_dict[catsk]
             if new_status_dict[catsk] != self.status_dict.get(catsk, None):
                 self.status_dict[catsk] = new_value

@@ -161,7 +161,7 @@ CATS2TANGO = {
 }
 
 TANGO2CATS = {}
-for k, v in CATS2TANGO.iteritems():
+for k, v in CATS2TANGO.items():
     TANGO2CATS[v] = k
 
 ###############################################################################

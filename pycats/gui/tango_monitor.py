@@ -434,7 +434,7 @@ class MonitorCS8(QtGui.QApplication):
             self.cs8.set('message', message)
 
         except Exception as e:
-            print 'Oups, some error updating state:\n', e
+            print('Oups, some error updating state:\n', e)
             import traceback
             traceback.print_exc()
 

@@ -473,7 +473,7 @@ class CS8Connection():
             elif puck_typ == '0':
                 self.puck_types[i] = PUCK_IGNORE
             else:
-                print "Unknown puck type %s. Puck is ignored " % puck_typ
+                print("Unknown puck type %s. Puck is ignored " % puck_typ)
                 self.puck_types[i] = PUCK_IGNORE
 
     def get_number_pucks(self):
@@ -1034,11 +1034,11 @@ class CS8Connection():
             toolcal)
 
     def setondiff(self, puck_lid, sample, type):
-        print(
+        print((
             "Setting info for sample on diff to %s:%s - type = %s" %
-            (puck_lid, sample, type))
+            (puck_lid, sample, type)))
         ret = self.trajectory('setdiffr', puck_lid, sample, type)
-        print("   - returns:  %s" % ret)
+        print(("   - returns:  %s" % ret))
         return ret
 
     def cap_on_lid(self, tool):
@@ -1423,7 +1423,7 @@ class CS8Connection():
 
         # DI
         di_str = di_ans[di_ans.find('(') + 1:-1]
-        di_values = map(lambda x: x == '1', di_str)
+        di_values = [x == '1' for x in di_str]
 
         if self.model is MODEL_ISARA:
             pars = di_params_isara
@@ -1437,7 +1437,7 @@ class CS8Connection():
 
         # DO
         do_str = do_ans[do_ans.find('(') + 1:-1]
-        do_values = map(lambda x: x == '1', do_str)
+        do_values = [x == '1' for x in do_str]
         for i, v in enumerate(do_values):
             key = do_params[i]
             if key != '.':
@@ -1460,7 +1460,7 @@ class CS8Connection():
                 if len(di2_ans) != len(self.puck_types):
                     self.puck_presence = [False, ] * len(self.nb_pucks)
                 else:
-                    self.puck_presence = map(bool, [int(ch) for ch in di2_ans])
+                    self.puck_presence = list(map(bool, [int(ch) for ch in di2_ans]))
             except BaseException:
                 self.puck_presence = [False, ] * len(self.nb_pucks)
         else:
@@ -1507,9 +1507,9 @@ class CS8Connection():
             self.follow_recovery_process()
 
         if self.pathinfo['running']:
-            print(
+            print((
                 "path running   '%(double_gripper)s %(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" %
-                self.pathinfo)
+                self.pathinfo))
 
         return status_dict
 
@@ -1634,12 +1634,12 @@ if __name__ == '__main__':
     cs8 = CS8Connection()
     cs8.connect('bl13cats.cells.es', 1000, 10000)
 
-    print '1) Check monitoring'
-    print cs8.state()
-    print cs8.di()
-    print cs8.do()
-    print cs8.position()
-    print cs8.message()
+    print('1) Check monitoring')
+    print(cs8.state())
+    print(cs8.di())
+    print(cs8.do())
+    print(cs8.position())
+    print(cs8.message())
     #
     # print
     # print '2) Check operation'
