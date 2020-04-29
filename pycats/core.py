@@ -4,74 +4,7 @@ from threading import Lock
 
 
 __all__ = ['CS8Connection']
-### CS8 CONSTANTS ###
 
-# Changes in version 6:
-# 1) Support and compatibility with ISARA model
-#   Main changes include
-#     new di2 command to report basket presence
-#     new addressing scheme, from lid,sample (CATS) to puck,sample(ISARA) 
-#     new syntax for some of the commands 
-#
-# Improvements in version 5:
-#
-# 1) Trajectory commands args 8 and 9 are NOT SPARE any more
-#    #8: plate dropping position
-#    #9: tool calibration values
-#
-# 2) 3 new trajectory commands:
-#    def rd_position(self, tool, lid):
-#    def rd_load(tool, newlid):
-#    def puckdetect(self, lid, toolcal):
-#
-# 3) 4 new LN2 controller commands:
-#    def regulon1(self):
-#    def reguloff1(self):
-#    def regulon2(self):
-#    def reguloff2(self):
-#
-# 4) 6 new Maintenance commands:
-#    def openlid4(self):
-#    def closelid4(self):
-#    def initdew1(self):
-#    def initdew2(self):
-#    def onestaticdw(self):
-#    def tworotatingdw(self):
-#
-# 5) 4 new State Params
-#    #16: puck detection result on Dewar #1
-#    #17: puck detection result on Dewar #2
-#    #18: position number in Dewar #1
-#    #19: position number in Dewar #2
-#
-# 6) do() answers now 99 signals (instead of 55) New signals:
-#    'REQ_DEW1_POS_B1'
-#    'REQ_DEW1_POS_B2'
-#    'REQ_DEW1_POS_B3'
-#    'REQ_DEW1_POS_B4'
-#    'REQ_DEW2_POS_B1'
-#    'REQ_DEW2_POS_B2'
-#    'REQ_DEW2_POS_B3'
-#    'REQ_DEW2_POS_B4'
-#    'CRYO_VALVE_LN2_C_DEW2'
-#    'CRYO_VALVE_LN2_E_DEW2'
-#    'CRYO_VALVE_GN2_E_DEW2'
-#    'OPEN_CLOSE_LID_3_1_DEW2'
-#    'OPEN_CLOSE_LID_3_2_DEW2'
-#    'OPEN_CLOSE_LID_4_1_DEW2'
-#    'OPEN_CLOSE_LID_4_2_DEW2'
-#    'PROCESS_OUTPUT_13'
-#    'PROCESS_OUTPUT_14'
-#    'PROCESS_OUTPUT_15'
-#    'PROCESS_OUTPUT_16'
-#    'ROT_DEW_NEW_POS_CTRL_ROBOT_WORKING'
-#    'ROT_DEW_POS_CTRL_CASS_LOADING'
-#    'ROT_DEW_POS_CTRL_ROBOT_WORKING'
-#
-# 7) NOT DOCUMENTED 3 NEW COMMANDS
-#    def clear_memory(self):
-#    def reset_parameters(self):
-#    def resetmotion(self):
 
 
 MODEL_CATS, MODEL_ISARA = (0,1)
