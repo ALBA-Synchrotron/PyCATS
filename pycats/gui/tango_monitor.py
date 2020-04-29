@@ -366,15 +366,16 @@ class WidgetController:
         self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
 
 
-class MonitorCS8(QtGui.QApplication):
-    def __init__(self, *args):
-        QtGui.QApplication.__init__(self, *args)
+class MonitorCS8(QApplication):
+    def __init__(self, *args, device=None):
+        QApplication.__init__(self, *args)
         self.cs8 = CS8State()
         cs8_panel = CS8_Panel(cs8=self.cs8)
         cs8_panel.setWindowTitle('CS8 Monitoring')
         cs8_panel.show()
-
-        self.cats_dev = PyTango.DeviceProxy('bl13/eh/cats')
+        if not device:
+            sys.exit()
+        self.cats_dev = DeviceProxy(device)
 
         update_timer = QTimer()
         update_timer.timeout.connect(self.update_status)
@@ -408,8 +409,13 @@ class MonitorCS8(QtGui.QApplication):
             traceback.print_exc()
 
 
-def run():
-    app = MonitorCS8(sys.argv)
+@click.command()
+@click.option('--device',
+              type=click.STRING,
+              prompt='CATS Tango device name',
+              help='The Tango device name for the CATS')
+def run(device):
+    app = MonitorCS8(sys.argv, device=device)
 
 
 if __name__ == '__main__':
