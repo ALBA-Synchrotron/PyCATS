@@ -1460,7 +1460,8 @@ class CS8Connection():
                 if len(di2_ans) != len(self.puck_types):
                     self.puck_presence = [False, ] * len(self.nb_pucks)
                 else:
-                    self.puck_presence = list(map(bool, [int(ch) for ch in di2_ans]))
+                    self.puck_presence = list(
+                        map(bool, [int(ch) for ch in di2_ans]))
             except BaseException:
                 self.puck_presence = [False, ] * len(self.nb_pucks)
         else:

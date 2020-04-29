@@ -1,6 +1,5 @@
-######################## TANGO ATTRIBUTE NAMES ################################
 CATS2TANGO = {
-    # STATE PARAMS pycats.state_params
+    # STATE PARAMS core.state_params
     'POWER_1_0': 'Powered',
     'AUTO_MODE_STATUS_1_0': 'AutoMode',
     'DEFAULT_STATUS_1_0': 'DefaultStatus',
@@ -31,7 +30,7 @@ CATS2TANGO = {
     'PUCK_TYPE_LID3': 'PuckTypeLid3',
     'PUCK_TYPE_LID': 'PuckTypeLid',
 
-    # DI PARAMS pycats.di_params
+    # DI PARAMS core.di_params
     'CRYOGEN_SENSORS_OK': 'di_CryoOK',
     'ESTOP_AND_AIRPRES_OK': 'di_EStopAirpresOK',
     'COLLISION_SENSOR_OK': 'di_CollisonSensorOK',
@@ -89,7 +88,7 @@ CATS2TANGO = {
     'VIRTUAL_INPUT_98': 'di_VI98',
     'VIRTUAL_INPUT_99': 'di_VI99',
 
-    # DO PARAMS pycats.do_params
+    # DO PARAMS core.do_params
     'TOOL_CHANGER': 'do_ToolChanger',
     'TOOL_OPEN_CLOSE': 'do_ToolOpenClose',
     'FAST_OUTPUT': 'do_FastOutput',
@@ -148,7 +147,7 @@ CATS2TANGO = {
     'ROT_DEW_POS_CTRL_CASS_LOADING': 'do_RotationDewarPosCassLoading',
     'ROT_DEW_POS_CTRL_ROBOT_WORKING': 'do_RotationDewPosWorking',
 
-    # POSITION PARAMS pycats.position_params
+    # POSITION PARAMS core.position_params
     'X_POSITION_IN_MM': 'Xpos',
     'Y_POSITION_IN_MM': 'Ypos',
     'Z_POSITION_IN_MM': 'Zpos',
@@ -163,5 +162,3 @@ CATS2TANGO = {
 TANGO2CATS = {}
 for k, v in CATS2TANGO.items():
     TANGO2CATS[v] = k
-
-###############################################################################
