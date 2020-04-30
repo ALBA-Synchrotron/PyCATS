@@ -1,8 +1,8 @@
 # pyCATS
-[![Anaconda-Server Badge](https://anaconda.org/conda-forge/qutip/badges/version.svg)](https://anaconda.org/conda-forge/qutip)
-[![Anaconda-Server Badge](https://anaconda.org/conda-forge/qutip/badges/latest_release_date.svg)](https://anaconda.org/conda-forge/qutip)
-[![Anaconda-Server Badge](https://anaconda.org/conda-forge/qutip/badges/platforms.svg)](https://anaconda.org/conda-forge/qutip)
-[![Anaconda-Server Badge](https://anaconda.org/conda-forge/qutip/badges/license.svg)](https://anaconda.org/conda-forge/qutip)
+[![Anaconda-Server Badge](https://anaconda.org/alba-controls/pyCATS/badges/version.svg)](https://anaconda.org/alba-controls/pyCATS)
+[![Anaconda-Server Badge](https://anaconda.org/alba-controls/pyCATS/badges/latest_release_date.svg)](https://anaconda.org/alba-controls/pyCATS)
+[![Anaconda-Server Badge](https://anaconda.org/alba-controls/pyCATS/badges/platforms.svg)](https://anaconda.org/alba-controls/pyCATS)
+[![Anaconda-Server Badge](https://anaconda.org/alba-controls/pyCATS/badges/license.svg)](https://anaconda.org/alba-controls/pyCATS)
 
 This library provides a python communication layer with the CATS server.
     
@@ -24,4 +24,4 @@ To run the server you need to define 4 device properties:
 ## Cats monitor
 
 This is a graphical application in PyQt5 which monitors the tango attributes
-from the Tsngo DS.
+from the Tango DS.
