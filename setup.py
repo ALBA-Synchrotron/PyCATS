@@ -7,7 +7,7 @@ from setuptools import find_packages
 # Do not update manually
 __version__ = '1.5.0'
 
-requirements = []
+requirements = ['tango', 'click']
 
 setup_requirements = []
 
@@ -29,7 +29,7 @@ setup(
     url="https://github.com/ALBA-Synchrotron/PyCATS",
     packages=find_packages(),
     # package_data={'': package_list},
-    include_package_data=True,
+    include_package_data=False,
     license="GPLv3",
     platforms='all',
     long_description="""
@@ -44,19 +44,21 @@ setup(
         'Natural Language :: English',
         'Operating System :: POSIX',
         'Operating System :: Microsoft :: Windows',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Communications',
         'Topic :: Software Development :: Libraries',
     ],
     entry_points={
         'console_scripts': [
-            'PyCATS = pycats.tango.server:main [tango]',
-
+            'pyCATS = pycats.tango.server:run',
+        ],
+        'gui_scripts': [
+            'cats-monitor = pycats.gui.tango_monitor:run [gui]'
         ]
     },
-    install_requires=[requirements],
+    install_requires=requirements,
     setup_requires=setup_requirements,
     tests_require=test_requirements,
-    extras_require={"tango": ['pytango']},
-    python_requires='>=2.7, <3',
+    extras_require={"gui": ['PyQt5']},
+    python_requires='>=3.5',
 )
