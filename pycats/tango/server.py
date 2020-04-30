@@ -1461,7 +1461,7 @@ class CATSClass(DeviceClass):
         self.set_type(name)
 
 
-def main():
+def run():
     try:
         util = Util(sys.argv)
         util.add_class(CATSClass, CATS, 'CATS')
@@ -1477,4 +1477,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()
