@@ -1,0 +1,47 @@
+{% set data = load_setup_py_data(setup_file="../setup.py",
+  from_recipe_dir=True) %}
+
+package:
+  name: {{ data.get('name') }}
+  version: {{ data.get('version') }}
+
+source:
+  path: ..
+
+#conda_build:
+#  config_file: ./conda_build_config.yaml
+
+build:
+  number: 0
+  string: py{{ PY_VER }}_{{ PKG_BUILDNUM }}_{{ GIT_DESCRIBE_HASH }}
+  noarch: python
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
+  entry_points:
+    - PyCATS = pycats.tango.server:main
+    - catsmonitor = pycats.gui.tango_monitor:run
+
+requirements:
+  host:
+    - python {{ data['python_requires'] }}
+    - setuptools
+  run:
+    - python {{ data['python_requires'] }}
+    {% for dep in data['install_requires'] %}
+    - {{ dep.lower()}}
+    {% endfor %}
+
+test:
+  imports:
+    - {{data.get('name')}}
+
+  requires:
+    {% for dep in data['tests_require'] %}
+    - {{ dep.lower()}}
+    {% endfor %}
+
+about:
+  home: {{ data.get('url')}}
+  license: {{ data.get('license')}}
+  summary: {{ data.get('description')}}
+  author: {{ data.get('author')}}
+  description: {{ data.get('long_description')}}
