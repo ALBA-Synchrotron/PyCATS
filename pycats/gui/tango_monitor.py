@@ -354,7 +354,10 @@ class WidgetController:
             '%s { background-color: yellow }' %
             widget_class)
         if self.reset_stylesheet_timer is not None:
-            self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
+            try:
+                self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
+            except Exception:
+                print('slot was not connected yet...disconnection skipped.')
         self.reset_stylesheet_timer = QTimer(self.parent)
         self.reset_stylesheet_timer.setSingleShot(True)
         self.reset_stylesheet_timer.timeout.connect(self.resetStyleSheet)
@@ -362,7 +365,6 @@ class WidgetController:
 
     def resetStyleSheet(self):
         self.widget.setStyleSheet('')
-        self.reset_stylesheet_timer.timeout.disconnect(self.resetStyleSheet)
 
 
 class MonitorCS8(QApplication):
