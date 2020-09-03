@@ -5,7 +5,7 @@ from setuptools import find_packages
 
 # The version is updated automatically with bumpversion
 # Do not update manually
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 requirements = ['tango', 'click']
 
