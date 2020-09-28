@@ -534,7 +534,8 @@ class CS8Connection():
         self.debug("Disconnected from CATS server")
 
     def _query(self, sock, cmd):
-        sock.send(cmd + '\r')
+        _cmd = cmd + '\r'
+        sock.send(_cmd.encode())
         received = sock.recv(1024)
         # !!! WARNING !!!
         # THERE IS NO CONTROL OF THE END OF MESSAGE
@@ -564,6 +565,7 @@ class CS8Connection():
         # yours, (but some ways are righter than others).
 
         # CHECK THAT THE ANSWER IS FROM THE COMMAND SENT
+        received = received.decode('utf-8')
         received = received.replace('\r', '')
         cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
         if not received.startswith(cmd_name) and cmd != 'message':
