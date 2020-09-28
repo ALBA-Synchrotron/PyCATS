@@ -7,7 +7,7 @@ from setuptools import find_packages
 # Do not update manually
 __version__ = '2.0.1'
 
-requirements = ['tango', 'click']
+requirements = ['pytango', 'click']
 
 setup_requirements = []
 
