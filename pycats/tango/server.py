@@ -1460,10 +1460,15 @@ class CATSClass(DeviceClass):
         DeviceClass.__init__(self, name)
         self.set_type(name)
 
+SERVER_NAME = 'pyCATS'
 
-def run():
+def run(args=None):
     try:
-        util = Util(sys.argv)
+        if not args:
+            args = sys.argv[1:]
+            args = [SERVER_NAME] + list(args)
+
+        util = Util(args)
         util.add_class(CATSClass, CATS, 'CATS')
 
         U = Util.instance()
