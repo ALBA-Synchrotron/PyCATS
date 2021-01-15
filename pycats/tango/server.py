@@ -1380,6 +1380,7 @@ class CATSClass(DeviceClass):
         'settool2': [[DevVarStringArray, 'StringArray:\n0:puck or lid number\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)'], [DevString], ],
         'put_HT': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [DevString], ],
         'get_HT': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:toolcal=0\n2:X_CATS shift (um)\n3:Y_CATS shift (um)\n4:Z_CATS shift (um)'], [DevString], ],
+        'getput_HT': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection\n1:sample number\n2:type = 0:Actor 1:UniPuck (only cryotong)\n3:toolcal=0\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [DevString], ],
         'recoverFailure': [[DevVoid], [DevString], ],
 
         # 3.6.5.3 Crystallization plate commands
