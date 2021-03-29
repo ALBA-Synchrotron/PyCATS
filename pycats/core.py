@@ -1608,16 +1608,6 @@ class CS8Connection():
             self.ri1_count += 1
             self.is_inr1 = False
 
-            if self.pathinfo['double_gripper']:
-                if self.ri1_count > 0:
-                    self.is_safe = True
-            elif self.pathinfo['pathname'] in self.check_paths_grp1:
-                if self.ri1_count > 0:
-                    self.is_safe = True
-            elif self.pathinfo['pathname'] in self.check_paths_grp2:
-                if self.ri1_count > 1:
-                    self.is_safe = True
-
         # area2 became True
         if self.pathinfo['in_area2'] and not self.is_inr2:
             self.is_inr2 = True
@@ -1626,6 +1616,16 @@ class CS8Connection():
         if not self.pathinfo['in_area2'] and self.is_inr2:
             self.ri2_count += 1
             self.is_inr2 = False
+
+            if self.pathinfo['double_gripper']:
+                if self.ri2_count > 0:
+                    self.is_safe = True
+            elif self.pathinfo['pathname'] in self.check_paths_grp1:
+                if self.ri2_count > 0:
+                    self.is_safe = True
+            elif self.pathinfo['pathname'] in self.check_paths_grp2:
+                if self.ri2_count > 1:
+                    self.is_safe = True
 
         return self.is_safe
 
