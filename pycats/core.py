@@ -656,10 +656,14 @@ class CS8Connection():
             cmd_and_args = cmd + '(' + args_str + ')'
             self.debug("sending operation: %s" % cmd_and_args)
         else:
-            if tool not in (2, 3, 5):
+            allowed_tools = (2, 3, 5)
+            if cmd in ['home', 'safe']:
+                allowed_tools = (0, 2, 3, 5)
+
+            if tool not in allowed_tools:
                 raise Exception(
-                    'SPINE, DoubleGripper and PLATES allowed. Tool is %s' %
-                    tool)
+                    'Allowed tools are %s (current is %s)' %
+                    (allowed_tools, tool))
             args = [
                 tool,
                 puck_lid,
