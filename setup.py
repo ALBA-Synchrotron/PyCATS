@@ -5,7 +5,7 @@ from setuptools import find_packages
 
 # The version is updated automatically with bumpversion
 # Do not update manually
-__version__ = '2.1.2'
+__version__ = '2.2.0'
 
 requirements = ['pytango', 'click']
 
