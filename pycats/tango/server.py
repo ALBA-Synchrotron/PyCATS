@@ -8,6 +8,7 @@ from tango import (Device_4Impl, DeviceClass, DevState, DevFailed, DevVoid,
 from .utils import CATS2TANGO, TANGO2CATS
 from ..help import di_help, do_help, message_help
 from ..core import CS8Connection
+from .. import __version__
 
 """
 Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
@@ -678,6 +679,9 @@ class CATS(Device_4Impl):
     # Convenience values
     def read_SampleOnDiff(self, attr): attr.set_value(self.is_sample_on_diff())
 
+    # Version
+    def read_Version(self, attr): attr.set_value(__version__)
+
     #################################################################
     ######################## EXECUTE COMMANDS #######################
     #################################################################
@@ -1339,7 +1343,8 @@ class CATSClass(DeviceClass):
         'Message': [[DevString, SCALAR, READ]],
 
         # Convenience values
-        'SampleOnDiff': [[DevBoolean, SCALAR, READ]]
+        'SampleOnDiff': [[DevBoolean, SCALAR, READ]],
+        'Version': [[DevString, SCALAR, READ]]
     }
 
     cmd_list = {
