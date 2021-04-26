@@ -1566,10 +1566,19 @@ class CS8Connection():
                 else:
                     puck_lid = self.lid_before_path
                 sample = self.sample_before_path
+                # get the type of sample from lid and cassette type if not ISARA
+                sample_type = 0
+                if not MODEL_ISARA:
+                    # Get type by lid [2,2,2,1,1,1,2,2,2] -> [2,1,2]
+                    sample_type_by_lid = self.get_puck_types()[0::3]
+                    # Map spine/unipuck definitions:
+                    # IRELEC-CATS server: 0-spine/1-unipuck
+                    # PyCATS TANGO: 1-spine/2-unipuck (cassette_type)
+                    sample_type = sample_type_by_lid[puck_lid - 1] - 1
                 self.warn(
-                    "Recovering from GET_FAILED. Phase2 (setondiff %s,%s)" %
-                    (puck_lid, sample))
-                self.setondiff(puck_lid, sample, 0)
+                    "Recovering from GET_FAILED. Phase2 (setondiff %s, %s, %s)" %
+                    (puck_lid, sample, sample_type))
+                self.setondiff(puck_lid, sample, sample_type)
                 # home
                 self.home(2)
                 self.recovery_phase = 3
