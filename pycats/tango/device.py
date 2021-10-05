@@ -1,10 +1,12 @@
 import time
+import logging
 from tango import (Device_4Impl, DeviceClass, DevState, DevVoid,
                    DevUShort, DevFloat, DevBoolean, DevString, DevShort,
                    DevVarStringArray, ArgType, READ, SCALAR, SPECTRUM)
 from .utils import CATS2TANGO, TANGO2CATS
-from ..help import di_help, do_help, message_help
+from ..messages import di_help, do_help, message_help
 from ..core import CS8Connection
+from ..logger import get_logger
 from .. import __version__
 
 
@@ -38,9 +40,8 @@ class CATS(Device_4Impl):
 
     def __init__(self, klass, name):
         Device_4Impl.__init__(self, klass, name)
-        self.logger = self.get_logger()
-        # self.cs8connection = CS8Connection(tango_logger=logger)
         self.cs8connection = CS8Connection()
+        self.logger = get_logger(__name__)
         # self.status_update_thread = None
         self.status_dict = {}
         self.init_device()
@@ -51,19 +52,20 @@ class CATS(Device_4Impl):
 
         self.set_change_event('State', True, False)
         self.set_change_event('Status', True, False)
-        self.logger.info('CATS state dictionary updates every %s ms' % self.update_freq_ms)
+        self.logger.info('CATS state dictionary updates every %s ms' %
+                         self.update_freq_ms)
         self.logger.info('Ready to accept requests.')
 
     def update_status(self):
         try:
-            new_status_dict = self.cs8connection.getStatusDict()
-            self.processStatusDict(new_status_dict)
+            new_status_dict = self.cs8connection.get_status_dict()
+            self.process_status_dict(new_status_dict)
         except Exception as e:
             import traceback
-            print("error reading status", traceback.format_exc())
-            self.notifyNewState(
+            self.logger.error("Error reading status", traceback.format_exc())
+            self.notify_new_state(
                 DevState.ALARM,
-                'Exception when getting status from the CATS system:\n%s' %
+                'Exception when getting status from CATS server:\n%s' %
                 str(e))
         time.sleep(self.update_freq_ms / 1000.)
 
@@ -76,11 +78,11 @@ class CATS(Device_4Impl):
                 self.host, self.port_operate, self.port_monitor)
             # self.status_update_thread = StatusUpdateThread(self)
             # self.status_update_thread.start()
-            self.notifyNewState(
+            self.notify_new_state(
                 DevState.ON,
                 'Connected to the CATS system.')
         except Exception as e:
-            self.notifyNewState(
+            self.notify_new_state(
                 DevState.ALARM,
                 'Exception connecting to the CATS system:\n' + str(e))
 
@@ -90,7 +92,7 @@ class CATS(Device_4Impl):
         self.status_dict = {}
         self.cs8connection.disconnect()
 
-    def notifyNewState(self, state, status=None):
+    def notify_new_state(self, state, status=None):
         self.set_state(state)
         if status is None:
             status = 'Device is in %s state.' % state
@@ -98,75 +100,99 @@ class CATS(Device_4Impl):
         self.push_change_event('State', state)
         self.push_change_event('Status', status)
 
-    def processStatusDict(self, new_status_dict):
-        # path_changed = False
-
-        #print(set(self.status_dict.keys() & set(new_status_dict.keys())))
+    def process_status_dict(self, new_status_dict):
 
         for catsk, new_value in new_status_dict.items():
-            #new_value = new_status_dict[catsk]
             if new_status_dict[catsk] != self.status_dict.get(catsk, None):
-                #print("attribute changed is %s (new %s" % (catsk, new_value))
                 self.status_dict[catsk] = new_value
                 # Notify any tango client that the value has changed
-                #if catsk not in ["NUM_SAMPLE_ON_TOOL2", "LID_NUM_SAMPLE_MOUNTED_ON_TOOL2"]:
                 attr_name = CATS2TANGO[catsk]
-                # print("%s with value %s" % (attr_name, new_value))
                 self.push_change_event(attr_name, new_value)
 
-                # if attr_name == 'Path':
-                #     path_changed = True
+        new_status = 'Powered = %s\n' % \
+                     self.status_dict[TANGO2CATS['Powered']]
+        new_status += 'Tool = %s\n' % \
+                      self.status_dict[TANGO2CATS['Tool']]
+        new_status += 'Path = %s\n' % \
+                      self.status_dict[TANGO2CATS['Path']]
+        new_status += 'PathRunning = %s\n' % \
+                      self.status_dict[TANGO2CATS['PathRunning']]
+        new_status += 'PathSafe = %s\n' % \
+                      self.is_path_safe()
 
-        new_status = 'Powered(%s)' % self.status_dict[TANGO2CATS['Powered']]
-        new_status += ' Tool(%s)' % self.status_dict[TANGO2CATS['Tool']]
-        new_status += ' Path(%s)' % self.status_dict[TANGO2CATS['Path']]
-        new_status += ' PathRunning(%s)' % self.status_dict[TANGO2CATS['PathRunning']]
-        new_status += ' PathSafe(%s)' % self.isPathSafe()
         if self.cs8connection.get_model() != "ISARA":
-            new_status += '\nLidSampleOnTool(%s)' % self.status_dict[TANGO2CATS['LidSampleOnTool']]
+            new_status += 'LidSampleOnTool= %s\n' % \
+                          self.status_dict[TANGO2CATS['LidSampleOnTool']]
         else:
-            new_status += '\nPuckNumberOnTool(%s)' % self.status_dict[TANGO2CATS['PuckNumberOnTool']]
-        new_status += ' NumSampleOnTool(%s)' % self.status_dict[TANGO2CATS['NumSampleOnTool']]
+            new_status += 'PuckNumberOnTool = %s\n' % \
+                          self.status_dict[TANGO2CATS['PuckNumberOnTool']]
+        new_status += 'NumSampleOnTool = %s\n' % \
+                      self.status_dict[TANGO2CATS['NumSampleOnTool']]
+
         if self.cs8connection.get_model() == "ISARA":
-            new_status += ' PuckNumberOnTool2(%s)' % self.status_dict[TANGO2CATS['PuckNumberOnTool2']]
-            new_status += ' NumSampleOnTool2(%s)' % self.status_dict[TANGO2CATS['NumSampleOnTool2']]
-        new_status += '\nBarcode(%s)' % self.status_dict[TANGO2CATS['Barcode']]
+            new_status += 'PuckNumberOnTool2 = %s\n' % \
+                          self.status_dict[TANGO2CATS['PuckNumberOnTool2']]
+            new_status += 'NumSampleOnTool2 = %s\n' % \
+                          self.status_dict[TANGO2CATS['NumSampleOnTool2']]
+        new_status += 'Barcode = %s\n' % \
+                      self.status_dict[TANGO2CATS['Barcode']]
+
         if self.cs8connection.get_model() != "ISARA":
-            new_status += '\nLidSampleOnDiff(%s)' % self.status_dict[TANGO2CATS['LidSampleOnDiff']]
+            new_status += 'LidSampleOnDiff = %s\n' %\
+                          self.status_dict[TANGO2CATS['LidSampleOnDiff']]
         else:
-            new_status += '\nPuckNumberOnDiff(%s)' % self.status_dict[TANGO2CATS['PuckSampleOnDiff']]
-        new_status += ' NumSampleOnDiff(%s)' % self.status_dict[TANGO2CATS['NumSampleOnDiff']]
-        new_status += '\nNumPlateOnTool(%s)' % self.status_dict[TANGO2CATS['NumPlateOnTool']]
+            new_status += 'PuckNumberOnDiff = %s\n' %\
+                          self.status_dict[TANGO2CATS['PuckSampleOnDiff']]
+        new_status += 'NumSampleOnDiff = %s\n' % \
+                      self.status_dict[TANGO2CATS['NumSampleOnDiff']]
+        new_status += 'NumPlateOnTool = %s\n' % \
+                      self.status_dict[TANGO2CATS['NumPlateOnTool']]
+
         if self.cs8connection.get_model() != "ISARA":
-            new_status += ' Well(%s)' % self.status_dict[TANGO2CATS['Well']]
-        new_status += '\nLN2Regulating(%s)' % self.status_dict[TANGO2CATS['LN2Regulating']]
+            new_status += 'Well = %s\n' % \
+                          self.status_dict[TANGO2CATS['Well']]
+        new_status += 'LN2Regulating = %s\n' % \
+                      self.status_dict[TANGO2CATS['LN2Regulating']]
+
         if self.cs8connection.get_model() != "ISARA":
-            new_status += ' LN2Warming(%s)' % self.status_dict[TANGO2CATS['LN2Warming']]
-        new_status += '\nAutoMode(%s)' % self.status_dict[TANGO2CATS['AutoMode']]
-        new_status += ' DefaultStatus(%s)' % self.status_dict[TANGO2CATS['DefaultStatus']]
-        new_status += ' SpeedRatio(%s)' % self.status_dict[TANGO2CATS['SpeedRatio']]
+            new_status += 'LN2Warming = %s\n' % \
+                          self.status_dict[TANGO2CATS['LN2Warming']]
+        new_status += 'AutoMode = %s\n' % \
+                      self.status_dict[TANGO2CATS['AutoMode']]
+        new_status += 'DefaultStatus = %s\n' % \
+                      self.status_dict[TANGO2CATS['DefaultStatus']]
+        new_status += 'SpeedRatio = %s\n' % \
+                      self.status_dict[TANGO2CATS['SpeedRatio']]
+
         if self.cs8connection.get_model() != "ISARA":
-            new_status += '\nPuckDetectionDewar1(%s)' % self.status_dict[TANGO2CATS['PuckDetectionDewar1']]
-            new_status += ' PuckDetectionDewar2(%s)' % self.status_dict[TANGO2CATS['PuckDetectionDewar2']]
-        new_status += ' PositionNumberDewar1(%s)' % self.status_dict[TANGO2CATS['PositionNumberDewar1']]
+            new_status += 'PuckDetectionDewar1 = %s\n' % \
+                          self.status_dict[TANGO2CATS['PuckDetectionDewar1']]
+            new_status += 'PuckDetectionDewar2 = %s\n' % \
+                          self.status_dict[TANGO2CATS['PuckDetectionDewar2']]
+        new_status += 'PositionNumberDewar1 = %s\n' % \
+                      self.status_dict[TANGO2CATS['PositionNumberDewar1']]
+
         if self.cs8connection.get_model() != "ISARA":
-            new_status += ' PositionNumberDewar2(%s)' % self.status_dict[TANGO2CATS['PositionNumberDewar2']]
+            new_status += 'PositionNumberDewar2 = %s\n' % \
+                          self.status_dict[TANGO2CATS['PositionNumberDewar2']]
+
         if self.cs8connection.get_model() == "ISARA":
-            new_status += ' CurrentNumberOfSoaking(%s)' % self.status_dict[TANGO2CATS['CurrentNumberOfSoaking']]
+            new_status += 'CurrentNumberOfSoaking = %s\n' % \
+                          self.status_dict[TANGO2CATS['CurrentNumberOfSoaking']]
 
         if new_status_dict[TANGO2CATS['Path']] != '':
-            self.notifyNewState(DevState.RUNNING, new_status)
+            self.notify_new_state(DevState.RUNNING, new_status)
         else:
-            self.notifyNewState(DevState.ON, new_status)
+            self.notify_new_state(DevState.ON, new_status)
 
-    def isPathSafe(self):
+    def is_path_safe(self):
         return self.cs8connection.is_path_safe()
 
-    def isRecoveryNeeded(self):
+    def is_recovery_needed(self):
         return self.cs8connection.is_recovery_needed()
 
     #################################################################
-    ######################## READ ATTRIBUTES ########################
+    #                        READ ATTRIBUTES
     #################################################################
 
     # STATE PARAMS pycats.state_params
@@ -293,8 +319,8 @@ class CATS(Device_4Impl):
     def read_di_CryoHighLevel(self, attr): attr.set_value(
         self.status_dict[TANGO2CATS['di_CryoHighLevel']])
 
-    # def read_di_CryoHighLevel(self, attr): attr.set_value(
-    #     self.status_dict[TANGO2CATS['di_CryoHighLevel']])
+    def read_di_CryoLowLevel(self, attr): attr.set_value(
+        self.status_dict[TANGO2CATS['di_CryoLowLevel']])
 
     def read_di_CryoLowLevelAlarm(self, attr): attr.set_value(
         self.status_dict[TANGO2CATS['di_CryoLowLevelAlarm']])
@@ -1078,8 +1104,8 @@ class CATSClass(DeviceClass):
                                   {'description': 'False:' + di_help[TANGO2CATS['di_CryoHighLevelAlarm']][0] + ' True:' + di_help[TANGO2CATS['di_CryoHighLevelAlarm']][1]}],
         'di_CryoHighLevel': [[DevBoolean, SCALAR, READ],
                              {'description': 'False:' + di_help[TANGO2CATS['di_CryoHighLevel']][0] + ' True:' + di_help[TANGO2CATS['di_CryoHighLevel']][1]}],
-        'di_CryoHighLevel': [[DevBoolean, SCALAR, READ],
-                             {'description': 'False:' + di_help[TANGO2CATS['di_CryoHighLevel']][0] + ' True:' + di_help[TANGO2CATS['di_CryoHighLevel']][1]}],
+        'di_CryoLowLevel': [[DevBoolean, SCALAR, READ],
+                             {'description': 'False:' + di_help[TANGO2CATS['di_CryoLowLevel']][0] + ' True:' + di_help[TANGO2CATS['di_CryoLowLevel']][1]}],
         'di_CryoLowLevelAlarm': [[DevBoolean, SCALAR, READ],
                                  {'description': 'False:' + di_help[TANGO2CATS['di_CryoLowLevelAlarm']][0] + ' True:' + di_help[TANGO2CATS['di_CryoLowLevelAlarm']][1]}],
         'di_CryoLiquidDetection': [[DevBoolean, SCALAR, READ],

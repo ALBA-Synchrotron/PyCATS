@@ -38,7 +38,7 @@ CATS2TANGO = {
     'COLLISION_SENSOR_OK': 'di_CollisonSensorOK',
     'CRYOGEN_HIGH_LEVEL_ALARM': 'di_CryoHighLevelAlarm',
     'CRYOGEN_HIGH_LEVEL': 'di_CryoHighLevel',
-    'CRYOGEN_LOW_LEVEL': 'di_CryoHighLevel',
+    'CRYOGEN_LOW_LEVEL': 'di_CryoLowLevel',
     'CRYOGEN_LOW_LEVEL_ALARM': 'di_CryoLowLevelAlarm',
     'CRYOGEN_LIQUID_DETECTION': 'di_CryoLiquidDetection',
     'PRI_GFM': 'di_PRI_GFM',

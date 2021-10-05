@@ -3,7 +3,7 @@ import sys
 from tango import DevFailed, Util
 from .device import CATS, CATSClass
 
-SERVER_NAME = 'pyCATS'
+SERVER_NAME = 'PyCATS'
 _DEVICE_REF = None
 _UTIL = None
 
