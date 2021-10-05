@@ -24,6 +24,8 @@ CATS2TANGO = {
     'PUCK_DET_RESULT_DEW2': 'PuckDetectionDewar2',
     'POSITION_NUM_DEW1': 'PositionNumberDewar1',
     'POSITION_NUM_DEW2': 'PositionNumberDewar2',
+    'LID_NUM_SAMPLE_MOUNTED_ON_TOOL2': 'PuckNumberInTool2',
+    'NUM_SAMPLE_ON_TOOL2': 'SampleNumberInTool2',
     'CURR_NUM_SOAKING': 'CurrentNumberOfSoaking',
     'PUCK_TYPE_LID1': 'PuckTypeLid1',
     'PUCK_TYPE_LID2': 'PuckTypeLid2',

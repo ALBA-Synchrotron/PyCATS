@@ -1408,7 +1408,7 @@ class CS8Connection():
                          'PUCK_DET_RESULT_DEW2',
                          'POSITION_NUM_DEW1',
                          'POSITION_NUM_DEW2',
-                         'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2',
+                         'LID_NUM_SAMPLE_MOUNTED_ON_TOOL2',
                          'NUM_SAMPLE_ON_TOOL2',
                          'CURR_NUM_SOAKING',
                          'PUCK_TYPE_LID1',
