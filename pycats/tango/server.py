@@ -287,8 +287,8 @@ class CATS(Device_4Impl):
     def read_di_CryoHighLevel(self, attr): attr.set_value(
         self.status_dict[TANGO2CATS['di_CryoHighLevel']])
 
-    def read_di_CryoHighLevel(self, attr): attr.set_value(
-        self.status_dict[TANGO2CATS['di_CryoHighLevel']])
+    # def read_di_CryoHighLevel(self, attr): attr.set_value(
+    #     self.status_dict[TANGO2CATS['di_CryoHighLevel']])
 
     def read_di_CryoLowLevelAlarm(self, attr): attr.set_value(
         self.status_dict[TANGO2CATS['di_CryoLowLevelAlarm']])
