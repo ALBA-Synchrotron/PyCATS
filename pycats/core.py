@@ -430,7 +430,7 @@ class CS8Connection():
     def __del__(self):
         self.disconnect()
 
-    def _init_logging(self, logger):
+    def _init_logging(self, logger=None):
         if logger:
             self.debug = logger.debug
             self.info = logger.info
@@ -445,6 +445,7 @@ class CS8Connection():
                 "%(asctime)s %(levelname)s %(name)s %(message)s")
             ch.setFormatter(formatter)
             logger.addHandler(ch)
+            logger.setLevel(logging.DEBUG)
             self.debug = logger.debug
             self.info = logger.info
             self.warn = logger.warning
