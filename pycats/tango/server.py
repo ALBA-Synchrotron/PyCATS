@@ -1010,10 +1010,10 @@ class CATSClass(DeviceClass):
                  []],
         'port_operate': [DevUShort,
                          "Socket's port to operatethe CATS system.",
-                         []],
+                         [1000]],
         'port_monitor': [DevUShort,
                          "Socket's port to monitor the CATS system.",
-                         []],
+                         [10000]],
         'model': [DevString,
                   "System model (cats/isara).",
                   ["cats"]],
@@ -1021,8 +1021,8 @@ class CATSClass(DeviceClass):
                        "nb_pucks x puck_type (2=unipuck,1=spine,0=ignore).",
                        ["111111111"]],
         'update_freq_ms': [DevUShort,
-                           "Time in ms to update the status of the CATS system.",
-                           []]
+                           "Update time in ms for the CATS status.",
+                           [300]]
     }
 
     attr_list = {
