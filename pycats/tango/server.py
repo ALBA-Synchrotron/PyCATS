@@ -10,6 +10,29 @@ from ..help import di_help, do_help, message_help
 from ..core import CS8Connection
 from .. import __version__
 
+
+# class StatusUpdateThread(threading.Thread):
+#     def __init__(self, ds):
+#         threading.Thread.__init__(self)
+#         self.ds = ds
+#         self.should_run = False
+#
+#     def stopRunning(self):
+#         self.should_run = False
+#
+#     def run(self):
+#         while self.should_run:
+#             try:
+#                 new_status_dict = self.ds.cs8connection.getStatusDict()
+#                 self.ds.processStatusDict(new_status_dict)
+#             except Exception as e:
+#                 import traceback
+#                 print("error reading status", traceback.format_exc())
+#                 self.ds.notifyNewState(
+#                     DevState.ALARM,
+#                     'Exception getting status from the CATS system:\n%s' %
+#                     str(e))
+#             time.sleep(self.ds.update_freq_ms / 1000.)
 """
 Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
   Beware of:
@@ -52,28 +75,6 @@ Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
        - setplateangle()
 """
 
-class StatusUpdateThread(threading.Thread):
-    def __init__(self, ds):
-        threading.Thread.__init__(self)
-        self.ds = ds
-        self.should_run = True
-
-    def stopRunning(self):
-        self.should_run = False
-
-    def run(self):
-        while self.should_run:
-            try:
-                new_status_dict = self.ds.cs8connection.getStatusDict()
-                self.ds.processStatusDict(new_status_dict)
-            except Exception as e:
-                import traceback
-                print("error reading status", traceback.format_exc())
-                self.ds.notifyNewState(
-                    DevState.ALARM,
-                    'Exception when getting status from the CATS system:\n%s' %
-                    str(e))
-            time.sleep(self.ds.update_freq_ms / 1000.)
 
 
 class CATS(Device_4Impl):
@@ -85,6 +86,7 @@ class CATS(Device_4Impl):
         logger = self.get_logger()
         self.cs8connection = CS8Connection(tango_logger=logger)
         self.status_update_thread = None
+        # self.status_update_thread = None
         self.status_dict = {}
         self.init_device()
 
@@ -95,6 +97,18 @@ class CATS(Device_4Impl):
         self.set_change_event('State', True, False)
         self.set_change_event('Status', True, False)
 
+    def update_status(self):
+        try:
+            new_status_dict = self.cs8connection.getStatusDict()
+            self.processStatusDict(new_status_dict)
+        except Exception as e:
+            import traceback
+            print("error reading status", traceback.format_exc())
+            self.notifyNewState(
+                DevState.ALARM,
+                'Exception when getting status from the CATS system:\n%s' %
+                str(e))
+        time.sleep(self.update_freq_ms / 1000.)
         logger.info('Ready to accept requests.')
 
     def init_device(self):
@@ -104,8 +118,8 @@ class CATS(Device_4Impl):
             self.cs8connection.set_puck_types(self.puck_types)
             self.cs8connection.connect(
                 self.host, self.port_operate, self.port_monitor)
-            self.status_update_thread = StatusUpdateThread(self)
-            self.status_update_thread.start()
+            # self.status_update_thread = StatusUpdateThread(self)
+            # self.status_update_thread.start()
             self.notifyNewState(
                 DevState.ON,
                 'Connected to the CATS system.')
@@ -115,8 +129,8 @@ class CATS(Device_4Impl):
                 'Exception connecting to the CATS system:\n' + str(e))
 
     def delete_device(self):
-        if self.status_update_thread is not None:
-            self.status_update_thread.stopRunning()
+        # if self.status_update_thread is not None:
+        #     self.status_update_thread.stopRunning()
         self.status_dict = {}
         self.cs8connection.disconnect()
 
@@ -1466,10 +1480,31 @@ class CATSClass(DeviceClass):
         DeviceClass.__init__(self, name)
         self.set_type(name)
 
+###############################################################################
+
+
 SERVER_NAME = 'pyCATS'
+_DEVICE_REF = None
+_UTIL = None
+
+
+def core_loop():
+    global _DEVICE_REF
+
+    if _DEVICE_REF is not None:
+        CATS.update_status(_DEVICE_REF)
+    else:
+        dev_list = _UTIL.get_device_list("*")
+        for dev in dev_list:
+            if isinstance(dev, CATS):
+                _DEVICE_REF = dev
+                break
+
 
 def run(args=None):
     try:
+        global _UTIL
+
         if not args:
             args = sys.argv[1:]
             args = [SERVER_NAME] + list(args)
@@ -1477,9 +1512,11 @@ def run(args=None):
         util = Util(args)
         util.add_class(CATSClass, CATS, 'CATS')
 
-        U = Util.instance()
-        U.server_init()
-        U.server_run()
+        u = Util.instance()
+        _UTIL = u
+        u.server_set_event_loop(core_loop)
+        u.server_init()
+        u.server_run()
 
     except DevFailed as e:
         print('-------> Received a DevFailed exception:', e)
