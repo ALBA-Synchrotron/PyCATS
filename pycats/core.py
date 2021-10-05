@@ -1420,7 +1420,8 @@ class CS8Connection():
                 else:
                     v = int(v)
             elif key == 'ROBOT_SPEED_RATIO':
-                v = float(v)
+                # round to avoid massive change push event on update
+                v = round(float(v), 3)
 
             if self.model is MODEL_ISARA and key == 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL':
                 status_dict['PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL'] = v
@@ -1455,7 +1456,8 @@ class CS8Connection():
             '(') + 1:-1].split(',')
         for i, v in enumerate(position_values):
             key = position_params[i]
-            status_dict[key] = float(v)
+            # round to avoid massive change push event on update
+            status_dict[key] = round(float(v), 3)
 
         # MESSAGE
         status_dict['MESSAGE'] = message_ans
