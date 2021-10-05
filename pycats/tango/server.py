@@ -1,4 +1,3 @@
-
 import sys
 import threading
 import time
@@ -33,48 +32,6 @@ from .. import __version__
 #                     'Exception getting status from the CATS system:\n%s' %
 #                     str(e))
 #             time.sleep(self.ds.update_freq_ms / 1000.)
-"""
-Vicente Rey / July 2017 - PyCATS device server now support ISARA Model
-  Beware of:
-    ISARA accepts a new tool:  number 5 for tool parameter is "double gripper"
-
-    sample addresses
-       CATS: lid, sample_no
-           sample_no is regarding that lid
-           (for example for 3rd sample in 2nd puck of a 3puck lid with 10 samples each
-                   sample_no is 23 )
-
-       ISARA:  puck, sample_no
-           there is only one big lid in ISARA model
-              puck number is given instead of lid number
-              sample number is number of sample in that puck
-
-
-    some new syntax for ISARA:
-       toolcal is always zero for ISARA. For commands using it the value provided is ignored
-
-       back(tool) - ISARA
-       back(tool, toolcal)  - CATS
-
-       soak(tool) - ISARA
-       soak(tool, lid)  - CATS
-
-    commands ISARA only
-       - None
-
-    commands CATS only
-       - transfer()
-       - rd_position()
-       - rd_load()
-
-       - goto_well()
-       - adjust()
-       - collect()
-       - focus()
-       - expose()
-       - setplateangle()
-"""
-
 
 
 class CATS(Device_4Impl):

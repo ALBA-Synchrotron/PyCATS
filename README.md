@@ -25,3 +25,42 @@ To run the server you need to define 4 device properties:
 
 This is a graphical application in PyQt5 which monitors the tango attributes
 from the Tango DS.
+
+## Cats/Isara compatibility
+
+PyCATS device server now support ISARA Model (Vicente Rey / July 2017)
+ISARA accepts a new tool:  number 5 for tool parameter is "double gripper"
+
+### sample addresses
+
+       CATS: lid, sample_no
+           sample_no is regarding that lid
+           (for example for 3rd sample in 2nd puck of a 3puck lid with 10 samples each
+                   sample_no is 23 )
+
+       ISARA:  puck, sample_no
+           there is only one big lid in ISARA model
+              puck number is given instead of lid number
+              sample number is number of sample in that puck
+
+
+### some new syntax for ISARA:
+       toolcal is always zero for ISARA. For commands using it the value provided is ignored
+
+       back(tool) - ISARA
+       back(tool, toolcal)  - CATS
+
+       soak(tool) - ISARA
+       soak(tool, lid)  - CATS
+
+### commands CATS only
+
+       - transfer()
+       - rd_position()
+       - rd_load()
+       - goto_well()
+       - adjust()
+       - collect()
+       - focus()
+       - expose()
+       - setplateangle()
