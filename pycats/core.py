@@ -2,6 +2,8 @@ import socket
 import struct
 from threading import Lock
 
+from .logger import get_logger
+
 
 __all__ = ['CS8Connection', 'di_params', 'do_params', 'state_params',
            'position_params']
@@ -368,14 +370,17 @@ TOOL_PLATES = 3
 TOOL_PUCK = 4
 
 
-class CS8Connection():
-    def __init__(self, host=None, operate_port=None, monitor_port=None,
-                 tango_logger=None, model=None):
-        self._init_logging(tango_logger)
+class CS8Connection:
+    def __init__(self, host=None, operate_port=None, monitor_port=None):
+        self._init_logging()
         self.sock_op = None
         self.lock_op = Lock()
         self.sock_mon = None
         self.lock_mon = Lock()
+
+        self.host = None
+        self.operate_port = None
+        self.monitor_port = None
 
         self.model = MODEL_CATS  # default.  set_model() to change it
 
@@ -430,26 +435,13 @@ class CS8Connection():
     def __del__(self):
         self.disconnect()
 
-    def _init_logging(self, logger):
-        if logger:
-            self.debug = logger.debug
-            self.info = logger.info
-            self.warn = logger.warn
-            self.error = logger.error
-            self.debug("Injecting log to tango logger")
-        else:
-            import logging
-            logger = logging.Logger(__name__)
-            ch = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "%(asctime)s %(levelname)s %(name)s %(message)s")
-            ch.setFormatter(formatter)
-            logger.addHandler(ch)
-            self.debug = logger.debug
-            self.info = logger.info
-            self.warn = logger.warning
-            self.error = logger.error
-            self.debug("Creating new logger %s" % __name__)
+    def _init_logging(self):
+        logger = get_logger(__name__)
+        self.debug = logger.debug
+        self.info = logger.info
+        self.warn = logger.warning
+        self.error = logger.error
+        self.debug("Creating new logger %s" % __name__)
 
     def set_model(self, model):
         if model in ["Isara", "isara", "i"]:
@@ -527,7 +519,7 @@ class CS8Connection():
         if self.sock_mon is not None:
             self.sock_mon.close()
             self.sock_mon = None
-        # if you disconnect and connect immediately, some times you recieve
+        # if you disconnect and connect immediately, some times you receive
         # '[Errno 104] Connection reset by peer'
         import time
         time.sleep(0.05)
@@ -569,21 +561,20 @@ class CS8Connection():
         received = received.replace('\r', '')
         cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
         if not received.startswith(cmd_name) and cmd != 'message':
-            msg = 'Answer is not the one expected.\nCmd: %s\nAns: %s' % (
+            msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (
                 cmd, received)
             self.error(msg)
             raise Exception(msg)
         else:
-            #        self.debug("Cmd: %s\nAns: %s" % (cmd, received))
             pass
         return received
 
-    ### OPERATE HELPER FUNCTIONS ###
+    # OPERATE HELPER FUNCTIONS
     def operate(self, cmd):
         with self.lock_op:
             #      return self._query(self.sock_op, cmd)
             received = self._query(self.sock_op, cmd)
-            self.debug("Cmd: %s, Ans: %s" % (cmd, received))
+            self.debug("%s --> %s" % (cmd, received))
             self._last_command_sent = cmd
             return received
 
@@ -1251,13 +1242,7 @@ class CS8Connection():
     def settool2(self, puck_lid, sample, type):
         return self.trajectory('settool2', puck_lid, sample, type)
 
-    # GOTODIF ALREADY DEFINED FOR PINS!!!!
-    # def gotodif(self, tool, plate, well, type, toolcal):
-    # return self.trajectory('gotodif',tool, 0, 0, 0, 0, plate, well, type, 0,
-    # toolcal)
-
     # 3.6.5.4 Virtual Inputs
-
     def vdi9xon(self, input): return self.operate('vdi%don' % input)
 
     def vdi9xoff(self, input): return self.operate('vdi%doff' % input)
@@ -1341,7 +1326,7 @@ class CS8Connection():
 
     def resetmotion(self): return self.operate('resetMotion')
 
-    ### MONITOR HELPER FUNCTIONS ###
+    # MONITOR HELPER FUNCTIONS
 
     def monitor(self, cmd):
         with self.lock_mon:
@@ -1378,7 +1363,7 @@ class CS8Connection():
     # %timeit -n 10 -r 10 c.getStatusDict()
     # 10 loops, best of 10: 84 ms per loop
 
-    def getStatusDict(self):
+    def get_status_dict(self):
         state_ans = self.state()
         di_ans = self.di()
         do_ans = self.do()
@@ -1408,7 +1393,7 @@ class CS8Connection():
                          'PUCK_DET_RESULT_DEW2',
                          'POSITION_NUM_DEW1',
                          'POSITION_NUM_DEW2',
-                         'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2',
+                         'LID_NUM_SAMPLE_MOUNTED_ON_TOOL2',
                          'NUM_SAMPLE_ON_TOOL2',
                          'CURR_NUM_SOAKING',
                          'PUCK_TYPE_LID1',
@@ -1419,12 +1404,16 @@ class CS8Connection():
                 else:
                     v = int(v)
             elif key == 'ROBOT_SPEED_RATIO':
-                v = float(v)
+                # round to avoid massive change push event on update
+                v = round(float(v), 3)
 
-            if self.model is MODEL_ISARA and key == 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL':
+            if self.model is MODEL_ISARA and\
+                    key == 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL':
                 status_dict['PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL'] = v
-            elif self.model is MODEL_ISARA and key == 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER':
+            elif self.model is MODEL_ISARA and \
+                    key == 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER':
                 status_dict['PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER'] = v
+
             status_dict[key] = v
 
         # DI
@@ -1454,7 +1443,8 @@ class CS8Connection():
             '(') + 1:-1].split(',')
         for i, v in enumerate(position_values):
             key = position_params[i]
-            status_dict[key] = float(v)
+            # round to avoid massive change push event on update
+            status_dict[key] = round(float(v), 3)
 
         # MESSAGE
         status_dict['MESSAGE'] = message_ans
@@ -1468,7 +1458,7 @@ class CS8Connection():
                 else:
                     self.puck_presence = list(
                         map(bool, [int(ch) for ch in di2_ans]))
-            except BaseException:
+            except Exception:
                 self.puck_presence = [False, ] * len(self.nb_pucks)
         else:
             self.puck_presence = [False, ] * self.nb_pucks
@@ -1479,13 +1469,14 @@ class CS8Connection():
         is_running = status_dict['PATH_RUNNING_1_0']
 
         if is_running and not self.pathinfo['running']:
-            # new path started
-            # save current sample on diffr (for recovery purposes)
-            self.sample_before_path = status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+            self.sample_before_path = \
+                status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
             if self.model is MODEL_ISARA:
-                self.puck_before_path = status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                self.puck_before_path = \
+                    status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
             else:
-                self.lid_before_path = status_dict["LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                self.lid_before_path = \
+                    status_dict["LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
             self.latest_path = status_dict["PATH_NAME"]
 
         self.pathinfo['idle'] = status_dict['PRO5_IDL']
@@ -1506,7 +1497,7 @@ class CS8Connection():
 
         self.pathinfo['double_gripper'] = (
             self.current_tool.strip().lower() == 'double')
-        self.pathinfo['safe'] = self.pathInSafeArea()
+        self.pathinfo['safe'] = self.path_in_safe_area()
 
         self.check_recovery_needed()
 
@@ -1514,14 +1505,13 @@ class CS8Connection():
             self.follow_recovery_process()
 
         if self.pathinfo['running']:
-            print((
-                "path running   '%(double_gripper)s %(pathname)8s / idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s / ri2 = %(in_area2)s / safe = %(safe)s'" %
-                self.pathinfo))
+            self.debug("path running '%(double_gripper)s %(pathname)8s /"
+                       " idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s /"
+                       " ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
 
         return status_dict
 
     def check_recovery_needed(self):
-            # if command being executed is of type "get" and
         if self.ri1_count == 1 and self.pathinfo['pathname'] in self.check_paths_get:
             if self.is_som:
                 self.recovery_type = RECOVER_GET_FAILED
@@ -1586,8 +1576,7 @@ class CS8Connection():
                 self.warn("recovering from GET_FAILED. Phase3 (end recovery)")
                 self.executing_recovery = False
 
-    def pathInSafeArea(self):
-
+    def path_in_safe_area(self):
         if not self.pathinfo['running']:
             self.is_running = False
             self.is_safe = True
@@ -1643,26 +1632,13 @@ class CS8Connection():
         return self.is_safe
 
 
-######################################################
-# Just for testing
 if __name__ == '__main__':
     import time
     cs8 = CS8Connection()
     cs8.connect('bl13cats.cells.es', 1000, 10000)
-
-    print('1) Check monitoring')
+    print('Check monitoring')
     print(cs8.state())
     print(cs8.di())
     print(cs8.do())
     print(cs8.position())
     print(cs8.message())
-    #
-    # print
-    # print '2) Check operation'
-    # print cs8.di()
-    # print cs8.openlid1()
-    # time.sleep(4)
-    # print cs8.di()
-    # print cs8.closelid1()
-    # time.sleep(4)
-    # print cs8.di()
