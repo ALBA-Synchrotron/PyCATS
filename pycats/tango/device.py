@@ -57,17 +57,29 @@ class CATS(Device_4Impl):
         self.logger.info('Ready to accept requests.')
 
     def update_status(self):
-        try:
-            new_status_dict = self.cs8connection.get_status_dict()
-            self.process_status_dict(new_status_dict)
-        except Exception as e:
-            import traceback
-            self.logger.error("Error reading status", traceback.format_exc())
-            self.notify_new_state(
-                DevState.ALARM,
-                'Exception when getting status from CATS server:\n%s' %
-                str(e))
-        time.sleep(self.update_freq_ms / 1000.)
+        if self.cs8connection.connected:
+            # self.logger.debug("getting status dict...")
+            try:
+                new_status_dict = self.cs8connection.get_status_dict()
+                self.process_status_dict(new_status_dict)
+            except Exception as e:
+                import traceback
+                self.logger.error("Error reading status: %s" % traceback.format_exc())
+                self.notify_new_state(
+                    DevState.ALARM,
+                    'Exception when getting status from CATS server:\n%s' %
+                    str(e))
+            time.sleep(self.update_freq_ms / 1000.)
+        else:
+            self.logger.debug("Status cannot be updated, requesting reconnection...")
+#            self.cs8connection.start_reconnection = True
+            time.sleep(self.update_freq_ms / 1000.)
+
+    def check_reconnection(self):
+#        if self.cs8connection.start_reconnection:
+        if not self.cs8connection.connected:
+            self.cs8connection.reconnect(every=self.reconnection_interval,
+                                         timeout=self.reconnection_timeout)
 
     def init_device(self):
         self.get_device_properties(self.get_device_class())
@@ -1054,7 +1066,13 @@ class CATSClass(DeviceClass):
                        ["111111111"]],
         'update_freq_ms': [DevUShort,
                            "Update time in ms for the CATS status.",
-                           [300]]
+                           [300]],
+        'reconnection_timeout': [DevUShort,
+                                 "Timeout in seconds to reconnect or stop the DS.",
+                                 [30]],
+        'reconnection_interval': [DevUShort,
+                                  "Wait time in seconds between reconnection attempts",
+                                  [5]]
     }
 
     attr_list = {
