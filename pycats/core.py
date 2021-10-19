@@ -1,3 +1,4 @@
+import time
 import socket
 import struct
 from threading import Lock
@@ -18,6 +19,7 @@ MODELS = {
 PUCK_IGNORE, PUCK_SPINE, PUCK_UNIPUCK = (0, 1, 2)
 
 RECOVER_GET_FAILED = 1
+SOCKET_RECV_TIMEOUT = 3
 
 state_params = [
     'POWER_1_0',
@@ -381,6 +383,8 @@ class CS8Connection:
         self.host = None
         self.operate_port = None
         self.monitor_port = None
+        self.connected = False
+        self._t0 = time.time()
 
         self.model = MODEL_CATS  # default.  set_model() to change it
 
@@ -507,9 +511,16 @@ class CS8Connection:
                 0))
         self.sock_mon.connect((self.host, self.monitor_port))
 
-        self.debug("Operation socket created (host = %s , port = %s" % (
+        # Add timeout for recv command for both sockets
+        self.sock_mon.settimeout(SOCKET_RECV_TIMEOUT)
+        self.sock_op.settimeout(SOCKET_RECV_TIMEOUT)
+
+        # Flag connected
+        self.connected = True
+        self.info("Connected to CATS server")
+        self.debug("Operation socket created (host=%s , port=%s" % (
             self.host, self.operate_port))
-        self.debug("Monitor socket created (host = %s , port = %s" % (
+        self.debug("Monitor socket created (host=%s , port=%s" % (
             self.host, self.monitor_port))
 
     def disconnect(self):
@@ -521,53 +532,104 @@ class CS8Connection:
             self.sock_mon = None
         # if you disconnect and connect immediately, some times you receive
         # '[Errno 104] Connection reset by peer'
-        import time
         time.sleep(0.05)
-        self.debug("Disconnected from CATS server")
+        # self.info("Disconnected from CATS server")
+
+    def reconnect(self, every=5, timeout=30):
+        """
+        Routine to be added to a control loop for managing the reconnection.
+        Tries to reconnect to the CATS server until a timeout is reached.
+
+        :param every: Wait for this amount before next reconnection attempt.
+        :param timeout: Reconnection timeout.
+        :return: None
+        """
+        self.debug("Trying to reconnect...")
+        et = time.time() - self._t0
+        if et > timeout:
+            raise RuntimeError("Reconnection timeout, aborting...")
+
+        self.disconnect()
+        try:
+            self.connect(self.host, self.operate_port, self.monitor_port)
+            self.connected = True
+            self._t0 = time.time()
+        except Exception as e:
+            self.error("Error trying to reconnect: %s" % str(e))
+            self.debug("Next reconnection attempt in {} seconds.".format(every))
+            time.sleep(every)
 
     def _query(self, sock, cmd):
-        _cmd = cmd + '\r'
-        sock.send(_cmd.encode())
-        received = sock.recv(1024)
-        # !!! WARNING !!!
-        # THERE IS NO CONTROL OF THE END OF MESSAGE
-        #
-        # AS IT IS SAID IN http://www.amk.ca/python/howto/sockets/
-        # SECTION "3 Using a Socket"
-        #
-        # A protocol like HTTP uses a socket for only one
-        # transfer. The client sends a request, the reads a
-        # reply. That's it. The socket is discarded. This
-        # means that a client can detect the end of the reply
-        # by receiving 0 bytes.
-        #
-        # But if you plan to reuse your socket for further
-        # transfers, you need to realize that there is no
-        # "EOT" (End of Transfer) on a socket. I repeat: if a
-        # socket send or recv returns after handling 0 bytes,
-        # the connection has been broken. If the connection
-        # has not been broken, you may wait on a recv forever,
-        # because the socket will not tell you that there's
-        # nothing more to read (for now). Now if you think
-        # about that a bit, you'll come to realize a
-        # fundamental truth of sockets: messages must either
-        # be fixed length (yuck), or be delimited (shrug), or
-        # indicate how long they are (much better), or end by
-        # shutting down the connection. The choice is entirely
-        # yours, (but some ways are righter than others).
+        """
+        The general method to query commands to the IRELEC server.
+        The sock parameter could be any of the 2 sockets: monitor or operation.
+        Both sockets have been configured with a timeout for the recv method.
 
-        # CHECK THAT THE ANSWER IS FROM THE COMMAND SENT
-        received = received.decode('utf-8')
-        received = received.replace('\r', '')
-        cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
-        if not received.startswith(cmd_name) and cmd != 'message':
-            msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (
-                cmd, received)
-            self.error(msg)
-            raise Exception(msg)
-        else:
-            pass
-        return received
+        :param sock:
+        :param cmd:
+        :return:
+        """
+        _cmd = cmd + '\r'
+
+        if self.connected:
+
+            try:
+                sock.send(_cmd.encode())
+            except Exception as e:
+                template = "Exception [{}] when sending command {} : {}"
+                self.error(template.format(type(e).__name__, _cmd, e))
+                self.connected = False
+                self._t0 = time.time()
+                raise
+
+            try:
+                received = sock.recv(1024)
+            except Exception as e:
+                template = "Exception [{}] when accessing buffer: {}"
+                self.error(template.format(type(e).__name__, e))
+                self.connected = False
+                self._t0 = time.time()
+                raise
+
+            # !!! WARNING !!!
+            # THERE IS NO CONTROL OF THE END OF MESSAGE
+            #
+            # AS IT IS SAID IN http://www.amk.ca/python/howto/sockets/
+            # SECTION "3 Using a Socket"
+            #
+            # A protocol like HTTP uses a socket for only one
+            # transfer. The client sends a request, the reads a
+            # reply. That's it. The socket is discarded. This
+            # means that a client can detect the end of the reply
+            # by receiving 0 bytes.
+            #
+            # But if you plan to reuse your socket for further
+            # transfers, you need to realize that there is no
+            # "EOT" (End of Transfer) on a socket. I repeat: if a
+            # socket send or recv returns after handling 0 bytes,
+            # the connection has been broken. If the connection
+            # has not been broken, you may wait on a recv forever,
+            # because the socket will not tell you that there's
+            # nothing more to read (for now). Now if you think
+            # about that a bit, you'll come to realize a
+            # fundamental truth of sockets: messages must either
+            # be fixed length (yuck), or be delimited (shrug), or
+            # indicate how long they are (much better), or end by
+            # shutting down the connection. The choice is entirely
+            # yours, (but some ways are righter than others).
+
+            # CHECK THAT THE ANSWER IS FROM THE COMMAND SENT
+            received = received.decode('utf-8')
+            received = received.replace('\r', '')
+            cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
+            if not received.startswith(cmd_name) and cmd != 'message':
+                msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (
+                    cmd, received)
+                self.error(msg)
+            #    raise Exception(msg)
+            else:
+                pass
+            return received
 
     # OPERATE HELPER FUNCTIONS
     def operate(self, cmd):
@@ -1364,15 +1426,21 @@ class CS8Connection:
     # 10 loops, best of 10: 84 ms per loop
 
     def get_status_dict(self):
-        state_ans = self.state()
-        di_ans = self.di()
-        do_ans = self.do()
+        try:
+            state_ans = self.state()
+            di_ans = self.di()
+            do_ans = self.do()
 
-        if self.model is MODEL_ISARA:
-            di2_ans = self.di2()
+            if self.model is MODEL_ISARA:
+                di2_ans = self.di2()
 
-        position_ans = self.position()
-        message_ans = self.message()
+            position_ans = self.position()
+            message_ans = self.message()
+        except Exception as e:
+            self.error("Exception when reading status from server: %s" % str(e))
+
+            raise e
+
         status_dict = {}
 
         # State
@@ -1495,6 +1563,12 @@ class CS8Connection:
             self.pathinfo['running'] = is_running
             self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
+        # Track start/end trajectories
+        if status_dict['PATH_RUNNING_1_0'] and not self.pathinfo['running']:
+            self.debug("Starting path")
+        elif not status_dict['PATH_RUNNING_1_0'] and self.pathinfo['running']:
+            self.debug("Ending path")
+
         self.pathinfo['double_gripper'] = (
             self.current_tool.strip().lower() == 'double')
         self.pathinfo['safe'] = self.path_in_safe_area()
@@ -1504,10 +1578,12 @@ class CS8Connection:
         if self.executing_recovery:
             self.follow_recovery_process()
 
-        if self.pathinfo['running']:
-            self.debug("path running '%(double_gripper)s %(pathname)8s /"
-                       " idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s /"
-                       " ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
+#        if self.pathinfo['running']:
+#            self.debug("path running '%(double_gripper)s %(pathname)8s /"
+#                       " idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s /"
+#                       " ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
+
+
 
         return status_dict
 

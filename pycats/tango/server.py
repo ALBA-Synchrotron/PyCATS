@@ -12,6 +12,7 @@ def core_loop():
     global _DEVICE_REF
 
     if _DEVICE_REF is not None:
+        CATS.check_reconnection(_DEVICE_REF)
         CATS.update_status(_DEVICE_REF)
     else:
         dev_list = _UTIL.get_device_list("*")
