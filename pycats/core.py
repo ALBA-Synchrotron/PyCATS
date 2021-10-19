@@ -19,6 +19,7 @@ MODELS = {
 PUCK_IGNORE, PUCK_SPINE, PUCK_UNIPUCK = (0, 1, 2)
 
 RECOVER_GET_FAILED = 1
+SOCKET_RECV_TIMEOUT = 3
 
 state_params = [
     'POWER_1_0',
@@ -383,7 +384,6 @@ class CS8Connection:
         self.operate_port = None
         self.monitor_port = None
         self.connected = False
-        #self.start_reconnection = False
         self._t0 = time.time()
 
         self.model = MODEL_CATS  # default.  set_model() to change it
@@ -512,15 +512,15 @@ class CS8Connection:
         self.sock_mon.connect((self.host, self.monitor_port))
 
         # Add timeout for recv command for both sockets
-        self.sock_mon.settimeout(3)
-        self.sock_op.settimeout(3)
+        self.sock_mon.settimeout(SOCKET_RECV_TIMEOUT)
+        self.sock_op.settimeout(SOCKET_RECV_TIMEOUT)
 
         # Flag connected
         self.connected = True
         self.info("Connected to CATS server")
-        self.debug("Operation socket created (host = %s , port = %s" % (
+        self.debug("Operation socket created (host=%s , port=%s" % (
             self.host, self.operate_port))
-        self.debug("Monitor socket created (host = %s , port = %s" % (
+        self.debug("Monitor socket created (host=%s , port=%s" % (
             self.host, self.monitor_port))
 
     def disconnect(self):
@@ -533,7 +533,7 @@ class CS8Connection:
         # if you disconnect and connect immediately, some times you receive
         # '[Errno 104] Connection reset by peer'
         time.sleep(0.05)
-        self.info("Disconnected from CATS server")
+        # self.info("Disconnected from CATS server")
 
     def reconnect(self, every=5, timeout=30):
         """
@@ -546,7 +546,6 @@ class CS8Connection:
         """
         self.debug("Trying to reconnect...")
         et = time.time() - self._t0
-        print(et)
         if et > timeout:
             raise RuntimeError("Reconnection timeout, aborting...")
 
@@ -554,11 +553,10 @@ class CS8Connection:
         try:
             self.connect(self.host, self.operate_port, self.monitor_port)
             self.connected = True
-            #self.start_reconnection = False
             self._t0 = time.time()
         except Exception as e:
-            self.error("Error when trying to reconnect, \n%s" % str(e))
-            self.debug("Trying to reconnect in {} seconds...".format(every))
+            self.error("Error trying to reconnect: %s" % str(e))
+            self.debug("Next reconnection attempt in {} seconds.".format(every))
             time.sleep(every)
 
     def _query(self, sock, cmd):
@@ -581,7 +579,6 @@ class CS8Connection:
                 template = "Exception [{}] when sending command {} : {}"
                 self.error(template.format(type(e).__name__, _cmd, e))
                 self.connected = False
-                #self.start_reconnection = True
                 self._t0 = time.time()
                 raise
 
@@ -591,7 +588,6 @@ class CS8Connection:
                 template = "Exception [{}] when accessing buffer: {}"
                 self.error(template.format(type(e).__name__, e))
                 self.connected = False
-                #self.start_reconnection = True
                 self._t0 = time.time()
                 raise
 

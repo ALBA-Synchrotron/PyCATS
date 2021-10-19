@@ -71,12 +71,10 @@ class CATS(Device_4Impl):
                     str(e))
             time.sleep(self.update_freq_ms / 1000.)
         else:
-            self.logger.debug("Status cannot be updated, requesting reconnection...")
-#            self.cs8connection.start_reconnection = True
+            # self.logger.debug("Requesting reconnection...")
             time.sleep(self.update_freq_ms / 1000.)
 
     def check_reconnection(self):
-#        if self.cs8connection.start_reconnection:
         if not self.cs8connection.connected:
             self.cs8connection.reconnect(every=self.reconnection_interval,
                                          timeout=self.reconnection_timeout)
