@@ -3,7 +3,9 @@ import logging
 
 from logging.handlers import TimedRotatingFileHandler
 
-FILENAME = '/tmp/tango-tangosys/PyCATS/bl13/log.txt'
+#FILENAME = '/tmp/tango-tangosys/PyCATS/bl13/log.txt'
+#FILENAME = '/tmp/tango-tangosys/PyCATS/bl06/log.txt'
+FILENAME = '/tmp/tango-tangosys/PyCATS/log.txt'
 
 
 def get_logger(name='root'):

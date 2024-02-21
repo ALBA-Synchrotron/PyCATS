@@ -1,0 +1,4 @@
+#!/usr/bin/python3
+
+from pycats.tango.server import run
+run()

@@ -6,14 +6,15 @@ from threading import Lock
 from .logger import get_logger
 
 
-__all__ = ['CS8Connection', 'di_params', 'do_params', 'state_params',
+__all__ = ['CS8Connection', 'di_params', 'do_params', 'state_params', 'state_params_isara2',
            'position_params']
 
 
-MODEL_CATS, MODEL_ISARA = (0, 1)
+MODEL_CATS, MODEL_ISARA, MODEL_ISARA2 = (0, 1, 2)
 MODELS = {
-    MODEL_CATS: "CATS",
-    MODEL_ISARA: "ISARA",
+    MODEL_CATS  : "CATS",
+    MODEL_ISARA : "ISARA",
+    MODEL_ISARA2: "ISARA2",
 }
 
 PUCK_IGNORE, PUCK_SPINE, PUCK_UNIPUCK = (0, 1, 2)
@@ -47,7 +48,71 @@ state_params = [
     'CURR_NUM_SOAKING',
     'PUCK_TYPE_LID1',
     'PUCK_TYPE_LID2',
-    'PUCK_TYPE_LID3']
+    'PUCK_TYPE_LID3'
+]
+
+state_params_isara2 = [
+    'POWER_1_0',
+    'REMOTE_MODE_STATUS_1_0',
+    'FAULT_STATUS_1_0',
+    'TOOL_NAME',
+    'POSITION_NAME',
+    'PATH_NAME',
+    'JAWA_STATE_1_0',
+    'JAWB_STATE_1_0',
+    'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL',
+    'NUM_SAMPLE_ON_TOOL',
+    'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2',
+    'NUM_SAMPLE_ON_TOOL2',
+    'PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
+    'NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
+    'TOOL_PLATE_NUMBER',
+    'DIFF_PLATE_NUMBER',
+    'DATAMATRIX',
+    'SEQUENCE_RUNNING_1_0',
+    'SEQUENCE_PAUSED_1_0',
+    'ROBOT_SPEED_RATIO',
+    'LN2_REGULATION_RUNNING_1_0',
+    'SOAKING_PHASES_NUM',
+    'LN2_DEWAR_LEVEL',
+    'LN2_MAXLEVEL_SETPOINT',
+    'LN2_MINLEVEL_SETPOINT',
+    'CAMERA_AUTO_TRACKING_1_0',
+    'GRIPPER_DRYING_1_0',
+    'PHASE_SEP_LN2_REGULATION_RUNNING_1_0',
+    'LAST_PLC_MESSAGE',
+    'ALARMS_WORD',
+    'X_POSITION',
+    'Y_POSITION',
+    'Z_POSITION',
+    'RX_POSITION',
+    'RY_POSITION',
+    'RZ_POSITION',
+    'JOINTA1_POS',
+    'JOINTA2_POS',
+    'JOINTA3_POS',
+    'JOINTA4_POS',
+    'JOINTA5_POS',
+    'JOINTA6_POS',
+    'LAST_RBTCTRL_MESSAGE',
+    'LAST_CRYOVIS_MESSAGE',
+    'CRYOVIS_FEEDBACK_DATA',
+    'EXT_LIGHT_OFF',
+    'HEAT_CABLE_ON',
+    'DEWAR_HIGH_TEMP',
+    'DEWAR_LOW_TEMP',
+    'PHASE_SEP_LEVEL_TEMP',
+    'PHASE_SEP_ALARM_TEMP',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'LAST_TEACH_RES'
+]
 
 di_params = [
     'CRYOGEN_SENSORS_OK',
@@ -148,7 +213,8 @@ di_params = [
     'VIRTUAL_INPUT_96',
     'VIRTUAL_INPUT_97',
     'VIRTUAL_INPUT_98',
-    'VIRTUAL_INPUT_99']
+    'VIRTUAL_INPUT_99'
+]
 
 # di information for isara is somehow different -
 #   SOM  (SOM is in
@@ -252,7 +318,123 @@ di_params_isara = [
     'VIRTUAL_INPUT_96',
     'VIRTUAL_INPUT_97',
     'VIRTUAL_INPUT_98',
-    'VIRTUAL_INPUT_99']
+    'VIRTUAL_INPUT_99'
+]
+
+di_params_isara2 = [
+    'STAND_BY',
+    'SEQ_READY',
+    'SEQ_RUNNING',
+    'SEQ_PAUSED',
+    'NOFAULT_STATE',
+    'DEBUG_MODE',
+    'WARNING_STATE',
+    'MANUAL_SEQ_MODE',
+    'ES_MCP',
+    'ES_WMS',
+    'ES_USA',
+    'ES_USB',
+    'ES_USEN',
+    'ES_DOOR',
+    'ES_INTERN',
+    '.',
+    'TOOL_CHANGER_OPENED',
+    'GRIPPER_A_OPENED',
+    'GRIPPER_A_CLOSED',
+    'GRIPPER_B_OPENED',
+    'GRIPPER_B_CLOSED',
+    'BLOW_AIR',
+    'SGRIP_OPENED',
+    'SGRIP_CLOSED',
+    'CGRIP_OPENED',
+    'CGRIP_CLOSED',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'OPEN_LID_REQ',
+    'CLOSE_LID_REQ',
+    'AIR_BLOWER_REQ',
+    'AIR_SUPPLY_REQ',
+    'LN2_REG_REQ',
+    '.',
+    '.',
+    '.',
+    'ROBOT_OUT_DEWAR',
+    'ROBOT_OUT_GONIO',
+    'ROBOT_IN_CAM_DEWAR',
+    'ROBOT_IN_CAM_GONIO',
+    'ROBOT_IN_CAM_HOME',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'DEAD_MAN_SWITCH',
+    'BRAKE_UNLOCKED',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'SAFETY_ACK',
+    'NETWORK_OK',
+    'SAFETY_RESTART',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+]
 
 do_params = [
     'TOOL_CHANGER',
@@ -353,7 +535,123 @@ do_params = [
     '.',
     'ROT_DEW_NEW_POS_CTRL_ROBOT_WORKING',
     'ROT_DEW_POS_CTRL_CASS_LOADING',
-    'ROT_DEW_POS_CTRL_ROBOT_WORKING']
+    'ROT_DEW_POS_CTRL_ROBOT_WORKING'
+]
+
+do_params_isara2 = [
+    'POWER_ON',
+    'ACK_FAULT',
+    'STOP',
+    'PAUSE',
+    'ACK_END_SEQ',
+    'ACK_MANUAL_SEQ',
+    '.',
+    'WARM_DEWAR',
+    'COLD_DEWAR',
+    'LID_OPENED',
+    'LID_CLOSED',
+    'OPEN_GRIP_A',
+    'CLOSE_GRIP_A',
+    'OPEN_GRIP_B',
+    'CLOSE_GRIP_B',
+    'REGULATION_RUNNING',
+    'SETMEM_GONIO',
+    'SETMEM_GRIP_A',
+    'SETMEM_GRIP_B',
+    'CLEAR_MEMORY',
+    'CLEAR_PARAM',
+    'CLEAR_ROBOT_MSG',
+    'RESET_PROGRAM',
+    '.',
+    '.',
+    '.',
+    '.',
+    'DO_PRI4_SOM',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'DO_PRI11_MON',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'DO_PRO2_IDL',
+    'DO_PRO3_RAH',
+    'DO_PRO4_RI1',
+    'DO_PRO5_RI2',
+    'DO_PRO6_RI3',
+    'DO_PRO7_RI4',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    'PUCK_1_PRESENCE',
+    'PUCK_2_PRESENCE',
+    'PUCK_3_PRESENCE',
+    'PUCK_4_PRESENCE',
+    'PUCK_5_PRESENCE',
+    'PUCK_6_PRESENCE',
+    'PUCK_7_PRESENCE',
+    'PUCK_8_PRESENCE',
+    'PUCK_9_PRESENCE',
+    'PUCK_10_PRESENCE',
+    'PUCK_11_PRESENCE',
+    'PUCK_12_PRESENCE',
+    'PUCK_13_PRESENCE',
+    'PUCK_14_PRESENCE',
+    'PUCK_15_PRESENCE',
+    'PUCK_16_PRESENCE',
+    'PUCK_17_PRESENCE',
+    'PUCK_18_PRESENCE',
+    'PUCK_19_PRESENCE',
+    'PUCK_20_PRESENCE',
+    'PUCK_21_PRESENCE',
+    'PUCK_22_PRESENCE',
+    'PUCK_23_PRESENCE',
+    'PUCK_24_PRESENCE',
+    'PUCK_25_PRESENCE',
+    'PUCK_26_PRESENCE',
+    'PUCK_27_PRESENCE',
+    'PUCK_28_PRESENCE',
+    'PUCK_29_PRESENCE',
+    '.',
+    '.',
+    '.',
+    'OPEN_GRIP_SM',
+    'CLOSE_GRIP_SM',
+    'OPEN_GRIP_C',
+    'CLOSE_GRIP_C',
+    'CLOSE_GRIP_EC',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+    '.',
+]
 
 
 position_params = [
@@ -362,7 +660,9 @@ position_params = [
     'Z_POSITION_IN_MM',
     'RX_POSITION_IN_MM',
     'RY_POSITION_IN_MM',
-    'RZ_POSITION_IN_MM']
+    'RZ_POSITION_IN_MM'
+]
+
 
 
 TOOL_FLANGE = 0
@@ -450,6 +750,8 @@ class CS8Connection:
     def set_model(self, model):
         if model in ["Isara", "isara", "i"]:
             self.model = MODEL_ISARA
+        elif model in ["Isara2", "isara2", "i2"]:
+            self.model = MODEL_ISARA2
 
     def get_model(self):
         if self.model in MODELS:
@@ -471,6 +773,9 @@ class CS8Connection:
             else:
                 print("Unknown puck type %s. Puck is ignored " % puck_typ)
                 self.puck_types[i] = PUCK_IGNORE
+
+        if self.model == MODEL_ISARA2:
+            self.puck_presence = [0, ] * self.nb_pucks
 
     def get_number_pucks(self):
         return self.nb_pucks
@@ -518,9 +823,9 @@ class CS8Connection:
         # Flag connected
         self.connected = True
         self.info("Connected to CATS server")
-        self.debug("Operation socket created (host=%s , port=%s" % (
+        self.debug("Operation socket created (host=%s , port=%s)" % (
             self.host, self.operate_port))
-        self.debug("Monitor socket created (host=%s , port=%s" % (
+        self.debug("Monitor socket created (host=%s , port=%s)" % (
             self.host, self.monitor_port))
 
     def disconnect(self):
@@ -699,47 +1004,101 @@ class CS8Connection:
             step=0,
             final_angle=0,
             spare_18=0,
-            spare_19=0):
+            spare_19=0,
+            on_the_fly_dm_scan=0,
+            newtype=0,
+            detect_inhib=0,
+            newsample_detect_inhib=0):
 
-        # Some checks
-        tool = int(tool)
-        if cmd in ['setdiffr', 'settool', 'settool2']:
-            args = [tool, puck_lid, sample]
-            args_str = ','.join(map(str, args))
-            cmd_and_args = cmd + '(' + args_str + ')'
-            self.debug("sending operation: %s" % cmd_and_args)
+        if self.model == MODEL_ISARA2:
+            # Some checks
+            tool = int(tool)
+            if cmd in ('setdiffr', 'setdiffr2', 'settool', 'settool2'):
+                args = [tool, puck_lid, sample]
+                if cmd == 'settool2':
+                    cmd == 'settool'
+                    args.append(newpuck_lid)
+                if cmd == 'setdiffr2':
+                    cmd == 'setdiffr'
+                    args.append(newpuck_lid)
+                args_str = ','.join(map(str, args))
+                cmd_and_args = cmd + '(' + args_str + ')'
+                self.debug("sending operation: %s" % cmd_and_args)
+            else:
+                args = []
+                if cmd in ('home', 'recover', 'back', 'soak', 'dry', 'getplate', 'changetool', 'toolcal', 'backht'):
+                    args = [tool]
+                else:
+                    args = [
+                        tool,
+                        puck_lid,
+                        sample,
+                        on_the_fly_dm_scan,
+                        newpuck_lid,
+                        newsample,
+                        type,
+                        newtype,
+                        detect_inhib,
+                        newsample_detect_inhib,
+                        x_shift,
+                        y_shift,
+                        z_shift,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+
+            if len(args):
+                args_str = ','.join(map(str, args))
+                cmd_and_args = 'traj(' + cmd + ',' + args_str + ')'
+            else:
+                cmd_and_args = 'traj(' + cmd + ')'
+
         else:
-            allowed_tools = (2, 3, 5)
-            if cmd in ['home', 'safe']:
-                allowed_tools = (0, 2, 3, 5)
+            # Some checks
+            tool = int(tool)
+            if cmd in ('setdiffr', 'settool', 'settool2'):
+                args = [tool, puck_lid, sample]
+                args_str = ','.join(map(str, args))
+                cmd_and_args = cmd + '(' + args_str + ')'
+                self.debug("sending operation: %s" % cmd_and_args)
+            else:
+                allowed_tools = (2, 3, 5)
+                if cmd in ('home', 'safe'):
+                    allowed_tools = (0, 2, 3, 5)
 
-            if tool not in allowed_tools:
-                raise Exception(
-                    'Allowed tools are %s (current is %s)' %
-                    (allowed_tools, tool))
-            args = [
-                tool,
-                puck_lid,
-                sample,
-                newpuck_lid,
-                newsample,
-                plate,
-                well,
-                type,
-                drop,
-                toolcal,
-                x_shift,
-                y_shift,
-                z_shift,
-                angle,
-                oscillations,
-                exp_time,
-                step,
-                final_angle,
-                spare_18,
-                spare_19]
-            args_str = ','.join(map(str, args))
-            cmd_and_args = cmd + '(' + args_str + ')'
+                if tool not in allowed_tools:
+                    raise Exception(
+                        'Allowed tools are %s (current is %s)' %
+                        (allowed_tools, tool))
+                args = [
+                    tool,
+                    puck_lid,
+                    sample,
+                    newpuck_lid,
+                    newsample,
+                    plate,
+                    well,
+                    type,
+                    drop,
+                    toolcal,
+                    x_shift,
+                    y_shift,
+                    z_shift,
+                    angle,
+                    oscillations,
+                    exp_time,
+                    step,
+                    final_angle,
+                    spare_18,
+                    spare_19
+                ]
+                args_str = ','.join(map(str, args))
+                cmd_and_args = cmd + '(' + args_str + ')'
+
         return self.operate(cmd_and_args)
 
     def home(self, tool):
@@ -751,16 +1110,7 @@ class CS8Connection:
     def safe(self, tool):
         return self.trajectory('safe', tool)
 
-    def put(
-            self,
-            tool,
-            puck_lid,
-            sample,
-            type,
-            toolcal,
-            x_shift,
-            y_shift,
-            z_shift):
+    def put(self, tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift):
         if self.model == MODEL_ISARA:
             toolcal = 0
         return self.trajectory(
@@ -779,20 +1129,16 @@ class CS8Connection:
             y_shift,
             z_shift)
 
-    def put_bcrd(
-            self,
-            tool,
-            puck_lid,
-            sample,
-            type,
-            toolcal,
-            x_shift,
-            y_shift,
-            z_shift):
+    def put_bcrd(self, tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift):
+        cmd = 'put_bcrd'
+        on_the_fly_dm_scan = 0
         if self.model == MODEL_ISARA:
             toolcal = 0
+        elif self.model == MODEL_ISARA2:
+            cmd = 'put'
+            on_the_fly_dm_scan = 1
         return self.trajectory(
-            'put_bcrd',
+            cmd,
             tool,
             puck_lid,
             sample,
@@ -805,13 +1151,17 @@ class CS8Connection:
             toolcal,
             x_shift,
             y_shift,
-            z_shift)
+            z_shift,
+            on_the_fly_dm_scan = on_the_fly_dm_scan)
 
-    def put_HT(self, tool, sample, type, toolcal, x_shift, y_shift, z_shift):
+    def put_HT(self, tool, sample, type, toolcal, x_shift, y_shift, z_shift, puck_lid=100):
+        cmd = 'put_HT'
+        if self.model == MODEL_ISARA2:
+            cmd = 'putht'
         return self.trajectory(
-            'put_HT',
+            cmd,
             tool,
-            100,
+            puck_lid,
             sample,
             0,
             0,
@@ -843,16 +1193,7 @@ class CS8Connection:
             y_shift,
             z_shift)
 
-    def getput(
-            self,
-            tool,
-            puck_lid,
-            sample,
-            type,
-            toolcal,
-            x_shift,
-            y_shift,
-            z_shift):
+    def getput(self, tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift):
         if self.model == MODEL_ISARA:
             toolcal = 0
         return self.trajectory(
@@ -871,11 +1212,14 @@ class CS8Connection:
             y_shift,
             z_shift)
 
-    def get_HT(self, tool, toolcal, x_shift, y_shift, z_shift):
+    def get_HT(self, tool, toolcal, x_shift, y_shift, z_shift, puck_lid=100):
+        cmd = 'get_HT'
+        if self.model == MODEL_ISARA2:
+            cmd = 'getht'
         return self.trajectory(
-            'get_HT',
+            cmd,
             tool,
-            100,
+            puck_lid,
             0,
             0,
             0,
@@ -888,45 +1232,36 @@ class CS8Connection:
             y_shift,
             z_shift)
 
-    def getput_HT(
-            self,
-            tool,
-            sample,
-            type,
-            toolcal,
-            x_shift,
-            y_shift,
-            z_shift):
+    def getput_HT(self, tool, sample, type, toolcal, x_shift, y_shift, z_shift, puck_lid=100):
+        cmd = 'getput_HT'
+        if self.model == MODEL_ISARA2:
+            cmd = 'getputht'
         return self.trajectory(
-            'getput_HT',
-            tool,
-            100,
-            sample,
-            0,
-            0,
-            0,
-            0,
-            type,
-            0,
-            toolcal,
-            x_shift,
-            y_shift,
-            z_shift)
-
-    def getput_bcrd(
-            self,
+            cmd,
             tool,
             puck_lid,
             sample,
+            0,
+            0,
+            0,
+            0,
             type,
+            0,
             toolcal,
             x_shift,
             y_shift,
-            z_shift):
+            z_shift)
+
+    def getput_bcrd(self, tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift):
+        cmd = 'getput_bcrd'
+        on_the_fly_dm_scan = 0
         if self.model == MODEL_ISARA:
             toolcal = 0
+        elif self.model == MODEL_ISARA2:
+            cmd = 'getput'
+            on_the_fly_dm_scan = 1
         return self.trajectory(
-            'getput_bcrd',
+            cmd,
             tool,
             puck_lid,
             sample,
@@ -939,15 +1274,19 @@ class CS8Connection:
             toolcal,
             x_shift,
             y_shift,
-            z_shift)
+            z_shift,
+            on_the_fly_dm_scan = on_the_fly_dm_scan)
 
     def barcode(self, tool, puck_lid, newsample, type, toolcal=None):
-        if self.model == MODEL_ISARA:
+        cmd = 'barcode'
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
+            if self.model == MODEL_ISARA2:
+                cmd = 'datamatrix'
             return self.trajectory(
-                'barcode', tool, puck_lid, newsample, 0, 0, 0, 0, type)
+                cmd, tool, puck_lid, newsample, 0, 0, 0, 0, type)
         else:
             return self.trajectory(
-                'barcode',
+                cmd,
                 tool,
                 0,
                 0,
@@ -960,23 +1299,14 @@ class CS8Connection:
                 toolcal)
 
     def back(self, tool, toolcal=None):
-        if self.model is MODEL_ISARA:
-            return self.trajectory('back', tool)
-        else:
-            return self.trajectory('back', tool, 0, 0, 0, 0, 0, 0, 0, toolcal)
+        if self.model == MODEL_ISARA:
+            toolcal=0
+        return self.trajectory('back', tool, toolcal=toolcal)
 
-    def transfer(
-            self,
-            tool,
-            puck_lid,
-            sample,
-            newpuck_lid,
-            newsample,
-            type,
-            toolcal):
-        if self.model is MODEL_ISARA:
+    def transfer(self, tool, puck_lid, sample, newpuck_lid, newsample, type, toolcal):
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'Transfer command not available for ISARA Sample Changer')
+                'transfer command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'transfer',
             tool,
@@ -991,37 +1321,34 @@ class CS8Connection:
             toolcal)
 
     def soak(self, tool, puck_lid=None):
-        if self.model is MODEL_ISARA:
-            return self.trajectory('soak', tool)
-        else:
-            return self.trajectory('soak', tool, puck_lid)
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
+            puck_lid = 0
+        return self.trajectory('soak', tool, puck_lid)
 
     def dry(self, tool):
         return self.trajectory('dry', tool)
 
     def dryhome(self, tool):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'dryhome command not available for ISARA Model Sample Changer')
+                'dryhome command not available for ISARA/ISARA2 sample changer')
         return self.trajectory('dryhome', tool)
 
     def gotodif(self, tool, puck_lid, sample, type, toolcal):
-        if self.model is MODEL_ISARA:
-            return self.trajectory(
-                'gotodif', tool, puck_lid, sample, 0, 0, 0, 0, type)
-        else:
-            return self.trajectory(
-                'gotodif',
-                tool,
-                puck_lid,
-                sample,
-                0,
-                0,
-                0,
-                0,
-                type,
-                0,
-                toolcal)
+        if self.model == MODEL_ISARA:
+            toolcal = 0
+        return self.trajectory(
+            'gotodif',
+            tool,
+            puck_lid,
+            sample,
+            0,
+            0,
+            0,
+            0,
+            type,
+            0,
+            toolcal)
 
     def pick(self, tool, puck_or_lid, sample, type):
         return self.trajectory(
@@ -1035,18 +1362,10 @@ class CS8Connection:
             0,
             type)
 
-    def getputpick(
-            self,
-            tool,
-            puck_lid,
-            sample,
-            type,
-            x_shift,
-            y_shift,
-            z_shift):
-        if self.model is MODEL_ISARA:
+    def getputpick(self, tool, puck_lid, sample, type, x_shift, y_shift, z_shift):
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'getpuckpick command not available for ISARA Model Sample Changer')
+                'getpuckpick command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'getputpick',
             tool,
@@ -1064,21 +1383,21 @@ class CS8Connection:
             z_shift)
 
     def rd_position(self, tool, puck_lid):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'rd_position command not available for ISARA Sample Changer')
+                'rd_position command not available for ISARA/ISARA2 sample changer')
         return self.trajectory('rd_position', tool, puck_lid)
 
     def rd_load(self, tool, newpuck_lid):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'rd_load command not available for ISARA Sample Changer')
+                'rd_load command not available for ISARA/ISARA2 sample changer')
         return self.trajectory('rd_load', tool, 0, 0, newpuck_lid)
 
     def puckdetect(self, puck_lid, toolcal):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'puckdetect command not available for ISARA Sample Changer')
+                'puckdetect command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'puckdetect',
             4,
@@ -1100,16 +1419,20 @@ class CS8Connection:
         print(("   - returns:  %s" % ret))
         return ret
 
+    def setondiff2(self, puck_lid, sample, type):
+        ret = self.trajectory('setdiffr2', puck_lid, sample, type, 1)
+        return ret
+
     def cap_on_lid(self, tool):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'capOnLid command not available for ISARA Model Sample Changer')
+                'capOnLid command not available for ISARA/ISARA2 sample changer')
         return self.trajectory('capOnLid', tool)
 
     def cap_off_lid(self, tool):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'capOffLid command not available for ISARA Model Sample Changer')
+                'capOffLid command not available for ISARA/ISARA2 sample changer')
         return self.trajectory('capOffLid', tool)
 
     def toolcalibration(self, tool):
@@ -1117,11 +1440,14 @@ class CS8Connection:
 
     # 3.6.5.3 Crystallization plate commands
     def putplate(self, tool, plate, well=None, type=None, toolcal=None):
-        if self.model is MODEL_ISARA:
-            return self.trajectory('putplate', tool, 0, 0, 0, 0, plate)
+        cmd = 'putplate'
+        if self.model == MODEL_ISARA:
+            return self.trajectory(cmd, tool, 0, 0, 0, 0, plate)
+        elif self.model == MODEL_ISARA2:
+            return self.trajectory(cmd, tool, plate)
         else:
             return self.trajectory(
-                'putplate',
+                cmd,
                 tool,
                 0,
                 0,
@@ -1133,26 +1459,22 @@ class CS8Connection:
                 0,
                 toolcal)
 
-    def getplate(self, tool=None, drop=None, toolcal=None):
-        if self.model is MODEL_ISARA:
-            return self.trajectory('getplate', tool)
-        else:
-            return self.trajectory(
-                'getplate', tool, 0, 0, 0, 0, 0, 0, 0, drop, toolcal)
+    def getplate(self, tool, drop=None, toolcal=None):
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
+            drop = 0
+            toolcal = 0
+        return self.trajectory('getplate', tool, 0, 0, 0, 0, 0, 0, 0, drop, toolcal)
 
-    def getputplate(
-            self,
-            tool,
-            plate,
-            well=None,
-            type=None,
-            drop=None,
-            toolcal=None):
-        if self.model is MODEL_ISARA:
-            return self.trajectory('getputplate', tool, 0, 0, 0, 0, plate)
+    def getputplate(self, tool, plate, well=None, type=None, drop=None, toolcal=None):
+        cmd = 'getputplate'
+        if self.model == MODEL_ISARA:
+            return self.trajectory(cmd, tool, 0, 0, 0, 0, plate)
+        elif self.model == MODEL_ISARA2:
+            raise Exception(
+                'getputplate command not available for ISARA2 sample changer')
         else:
             return self.trajectory(
-                'getputplate',
+                cmd,
                 tool,
                 0,
                 0,
@@ -1165,9 +1487,9 @@ class CS8Connection:
                 toolcal)
 
     def goto_well(self, tool, plate, well, toolcal):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'goto_well command not available for ISARA Sample Changer')
+                'goto_well command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'goto_well',
             tool,
@@ -1182,9 +1504,9 @@ class CS8Connection:
             toolcal)
 
     def adjust(self, tool, toolcal, x_shift, y_shift):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'adjust command not available for ISARA Sample Changer')
+                'adjust command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'adjust',
             tool,
@@ -1201,9 +1523,9 @@ class CS8Connection:
             y_shift)
 
     def focus(self, tool, toolcal, z_shift):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'focus command not available for ISARA Sample Changer')
+                'focus command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'focus',
             tool,
@@ -1221,9 +1543,9 @@ class CS8Connection:
             z_shift)
 
     def expose(self, tool, toolcal, angle, oscillations, exp_time, step):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'expose command not available for ISARA Sample Changer')
+                'expose command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'expose',
             tool,
@@ -1253,9 +1575,9 @@ class CS8Connection:
             exp_time,
             step,
             final_angle):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'collect command not available for ISARA Sample Changer')
+                'collect command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'collect',
             tool,
@@ -1278,9 +1600,9 @@ class CS8Connection:
             final_angle)
 
     def setplateangle(self, tool, toolcal, angle):
-        if self.model is MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'setplateangle command not available for ISARA Sample Changer')
+                'setplateangle command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'setplateangle',
             tool,
@@ -1326,6 +1648,23 @@ class CS8Connection:
 
     def reguloff2(self): return self.operate('reguloff2')
 
+    # Extra ISARA2 LN2 commands
+    def ps_regulon(self): return self.operate('ps_regulon')
+
+    def ps_reguloff(self): return self.operate('ps_reguloff')
+
+    def dc_regulon(self): return self.operate('dc_regulon')
+
+    def dc_reguloff(self): return self.operate('dc_reguloff')
+
+    def sethighln2(self, high_threshold): return self.operate('sethighln2(%)' % int(high_threshold))
+
+    def setlowln2(self, low_threshold): return self.operate('setlowln2(%)' % int(low_threshold))
+
+    def dc_sethighln2(self, high_threshold): return self.operate('dc_sethighln2(%)' % int(high_threshold))
+
+    def dc_setlowln2(self, low_threshold): return self.operate('dc_setlowln2(%)' % int(low_threshold))
+
     # 3.6.5.6 Maintenance commands
     def openlid1(self): return self.operate('openlid1')
 
@@ -1347,9 +1686,17 @@ class CS8Connection:
 
     def closetool(self): return self.operate('closetool')
 
-    def opentool2(self): return self.operate('opentool2')
+    def opentool2(self):
+        cmd = 'opentool2'
+        if self.model == MODEL_ISARA2:
+            cmd = 'opentoolb'
+        return self.operate(cmd)
 
-    def closetool2(self): return self.operate('closetool2')
+    def closetool2(self):
+        cmd = 'closetool2'
+        if self.model == MODEL_ISARA2:
+            cmd = 'closetoolb'
+        return self.operate(cmd)
 
     def magneton(self): return self.operate('magneton')
 
@@ -1381,12 +1728,57 @@ class CS8Connection:
 
     def speeddown(self): return self.operate('speeddown')
 
+    def setspeed(self, speed_setpoint):
+        if self.model == MODEL_ISARA2:
+            return self.operate('setspeed(%.2f)' % speed_setpoint)
+        raise NotImplementedError
+
+    def setautocloselidtimer(self, speed_percent):
+        if self.model == MODEL_ISARA2:
+            # DO STUFF HERE!!!
+            raise NotImplementedError
+        raise NotImplementedError
+
+    def setmaxsoaktime(self, max_soak_time):
+        if self.model == MODEL_ISARA2:
+            # DO STUFF HERE!!!
+            raise NotImplementedError
+        raise NotImplementedError
+
+    def setmaxsoaknb(self, max_soak_nb):
+        if self.model == MODEL_ISARA2:
+            # DO STUFF HERE!!!
+            raise NotImplementedError
+        raise NotImplementedError
+
+    def setgrippercoolingtimer(self, timer):
+        if self.model == MODEL_ISARA2:
+            # DO STUFF HERE!!!
+            raise NotImplementedError
+        raise NotImplementedError
+
+    def setautodrytimer(self, timer):
+        if self.model == MODEL_ISARA2:
+            # DO STUFF HERE!!!
+            raise NotImplementedError
+        raise NotImplementedError
+
     # These 3 methods are not in the official documentation (ALBA specific)
-    def clear_memory(self): return self.operate('clear memory')
+    def clear_memory(self):
+        cmd = 'clear memory'
+        if self.model == MODEL_ISARA2:
+            cmd = 'clearmemory'
+        return self.operate(cmd)
 
-    def reset_parameters(self): return self.operate('reset parameters')
+    def reset_parameters(self):
+        if self.model == MODEL_ISARA2:
+            raise NotImplementedError
+        return self.operate('reset parameters')
 
-    def resetmotion(self): return self.operate('resetMotion')
+    def resetmotion(self):
+        if self.model == MODEL_ISARA2:
+            raise NotImplementedError
+        return self.operate('resetMotion')
 
     # MONITOR HELPER FUNCTIONS
 
@@ -1431,27 +1823,61 @@ class CS8Connection:
             di_ans = self.di()
             do_ans = self.do()
 
-            if self.model is MODEL_ISARA:
+            if self.model == MODEL_ISARA:
                 di2_ans = self.di2()
 
-            position_ans = self.position()
-            message_ans = self.message()
+            if self.model in (MODEL_CATS, MODEL_ISARA):
+                position_ans = self.position()
+                message_ans = self.message()
         except Exception as e:
             self.error("Exception when reading status from server: %s" % str(e))
 
             raise e
 
         status_dict = {}
+        is_running = None
 
         # State
         state_values = state_ans[state_ans.find('(') + 1:-1].split(',')
         for i, v in enumerate(state_values):
-            key = state_params[i]
+            if self.model == MODEL_ISARA2:
+                key = state_params_isara2[i]
+            else:
+                key = state_params[i]
+            if key == '.': continue
+
             # Make flags boolean :-D
             if key.endswith('_1_0'):
                 v = v == '1'
+                if key in ('PATH_RUNNING_1_0', 'SEQUENCE_RUNNING_1_0'):
+                    is_running = v
+
+            # Make numbers floats :-D
+            elif key in ('ROBOT_SPEED_RATIO',
+                         'LN2_DEWAR_LEVEL',
+                         'LN2_MAXLEVEL_SETPOINT',
+                         'LN2_MINLEVEL_SETPOINT',
+                         'X_POSITION',
+                         'Y_POSITION',
+                         'Z_POSITION',
+                         'RX_POSITION',
+                         'RY_POSITION',
+                         'RZ_POSITION',
+                         'JOINTA1_POS',
+                         'JOINTA2_POS',
+                         'JOINTA3_POS',
+                         'JOINTA4_POS',
+                         'JOINTA5_POS',
+                         'JOINTA6_POS',
+                         'DEWAR_HIGH_TEMP',
+                         'DEWAR_LOW_TEMP',
+                         'PHASE_SEP_LEVEL_TEMP',
+                         'PHASE_SEP_ALARM_TEMP'):
+                # round to avoid massive change push event on update
+                v = round(float(v), 3)
+
             # Make numbers integer :-D
-            elif key in ['LID_NUM_SAMPLE_MOUNTED_ON_TOOL',
+            elif key in ('LID_NUM_SAMPLE_MOUNTED_ON_TOOL',
                          'NUM_SAMPLE_ON_TOOL',
                          'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
                          'NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
@@ -1466,19 +1892,27 @@ class CS8Connection:
                          'CURR_NUM_SOAKING',
                          'PUCK_TYPE_LID1',
                          'PUCK_TYPE_LID2',
-                         'PUCK_TYPE_LID3']:
+                         'PUCK_TYPE_LID3',
+                         'DIFF_PLATE_NUMBER',
+                         'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL',
+                         'LAST_TEACH_RES',
+                         'CLOSE_LID_REQ',
+                         'SOAKING_PHASES_NUM',
+                         'ALARMS_WORD',
+                         'PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
+                         'TOOL_PLATE_NUMBER',
+                         'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2'):
                 if v == '':
                     v = -1
                 else:
                     v = int(v)
-            elif key == 'ROBOT_SPEED_RATIO':
-                # round to avoid massive change push event on update
-                v = round(float(v), 3)
+            else:
+                v = str(v)
 
-            if self.model is MODEL_ISARA and\
+            if self.model == MODEL_ISARA and \
                     key == 'LID_NUM_SAMPLE_MOUNTED_ON_TOOL':
                 status_dict['PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL'] = v
-            elif self.model is MODEL_ISARA and \
+            elif self.model == MODEL_ISARA and \
                     key == 'LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER':
                 status_dict['PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER'] = v
 
@@ -1487,12 +1921,13 @@ class CS8Connection:
         # DI
         di_str = di_ans[di_ans.find('(') + 1:-1]
         di_values = [x == '1' for x in di_str]
-
-        if self.model is MODEL_ISARA:
+        if self.model == MODEL_ISARA:
             pars = di_params_isara
+        elif self.model == MODEL_ISARA2:
+            di_values = [x == '1' for x in di_str.split(',')]
+            pars = di_params_isara2
         else:
             pars = di_params
-
         for i, v in enumerate(di_values):
             key = pars[i]
             if key != '.':
@@ -1501,24 +1936,30 @@ class CS8Connection:
         # DO
         do_str = do_ans[do_ans.find('(') + 1:-1]
         do_values = [x == '1' for x in do_str]
+        if self.model == MODEL_ISARA2:
+            do_values = [int(x) for x in do_str.split(',')]
+            pars = do_params_isara2
+        else:
+            pars = do_params
         for i, v in enumerate(do_values):
-            key = do_params[i]
+            key = pars[i]
             if key != '.':
                 status_dict[key] = v
 
-        # POSITION
-        position_values = position_ans[position_ans.find(
-            '(') + 1:-1].split(',')
-        for i, v in enumerate(position_values):
-            key = position_params[i]
-            # round to avoid massive change push event on update
-            status_dict[key] = round(float(v), 3)
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            # POSITION
+            position_values = position_ans[position_ans.find(
+                '(') + 1:-1].split(',')
+            for i, v in enumerate(position_values):
+                key = position_params[i]
+                # round to avoid massive change push event on update
+                status_dict[key] = round(float(v), 3)
 
-        # MESSAGE
-        status_dict['MESSAGE'] = message_ans
+            # MESSAGE
+            status_dict['MESSAGE'] = message_ans
 
         # DETERMINE CASETTE PRESENCE INFO
-        if self.model is MODEL_ISARA:
+        if self.model == MODEL_ISARA:
             try:
                 di2_ans = di2_ans[4:-1]  # remove di2( and final ) from answer
                 if len(di2_ans) != len(self.puck_types):
@@ -1528,75 +1969,90 @@ class CS8Connection:
                         map(bool, [int(ch) for ch in di2_ans]))
             except Exception:
                 self.puck_presence = [False, ] * len(self.nb_pucks)
+
+        elif self.model == MODEL_ISARA2:
+            """
+            try:
+                self.puck_presence = [bool(x) for x in do_values[56:85]]
+            except Exception:
+                self.puck_presence = [False, ] * len(self.nb_pucks)
+            """
+            self.parse_cryovision_feedback_data(status_dict['CRYOVIS_FEEDBACK_DATA'])
         else:
             self.puck_presence = [False, ] * self.nb_pucks
             for i in range(self.nb_pucks):
                 st_key = "CASSETTE_%d_PRESENCE" % (i + 1)
                 self.puck_presence[i] = status_dict[st_key]
 
-        is_running = status_dict['PATH_RUNNING_1_0']
-
+        # Track start/end trajectories
         if is_running and not self.pathinfo['running']:
-            self.sample_before_path = \
-                status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
-            if self.model is MODEL_ISARA:
-                self.puck_before_path = \
-                    status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+            self.debug("Starting path", status_dict['PATH_NAME'])
+        elif not is_running and self.pathinfo['running']:
+            self.debug("Ending path")
+
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            if is_running and not self.pathinfo['running']:
+                self.sample_before_path = \
+                    status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                if self.model == MODEL_ISARA:
+                    self.puck_before_path = \
+                        status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                else:
+                    self.lid_before_path = \
+                        status_dict["LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                self.latest_path = status_dict["PATH_NAME"]
+
+            self.pathinfo['idle'] = status_dict['PRO5_IDL']
+            self.pathinfo['home'] = status_dict['PRO6_RAH']
+            self.pathinfo['in_area1'] = status_dict['PRO7_RI1']
+            self.pathinfo['in_area2'] = status_dict['PRO8_RI2']
+            self.is_som = status_dict['PRI_SOM']
+            self.is_idle = status_dict['PRO5_IDL']
+
+            self.current_tool = status_dict['TOOL_NUM_OR_NAME']
+
+            if self.executing_recovery:
+                self.pathinfo['running'] = True
+                self.pathinfo['pathname'] = "recovery"
             else:
-                self.lid_before_path = \
-                    status_dict["LID_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
-            self.latest_path = status_dict["PATH_NAME"]
-
-        self.pathinfo['idle'] = status_dict['PRO5_IDL']
-        self.pathinfo['home'] = status_dict['PRO6_RAH']
-        self.pathinfo['in_area1'] = status_dict['PRO7_RI1']
-        self.pathinfo['in_area2'] = status_dict['PRO8_RI2']
-        self.is_som = status_dict['PRI_SOM']
-        self.is_idle = status_dict['PRO5_IDL']
-
-        self.current_tool = status_dict['TOOL_NUM_OR_NAME']
-
-        if self.executing_recovery:
-            self.pathinfo['running'] = True
-            self.pathinfo['pathname'] = "recovery"
-        else:
+                self.pathinfo['running'] = is_running
+                self.pathinfo['pathname'] = status_dict['PATH_NAME']
+        elif self.model == MODEL_ISARA2:
+            # TO DO: UPDATE ABOVE VARIABLES FOR ISARA2
             self.pathinfo['running'] = is_running
             self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
-        # Track start/end trajectories
-        if status_dict['PATH_RUNNING_1_0'] and not self.pathinfo['running']:
-            self.debug("Starting path")
-        elif not status_dict['PATH_RUNNING_1_0'] and self.pathinfo['running']:
-            self.debug("Ending path")
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            self.pathinfo['double_gripper'] = (
+                self.current_tool.strip().lower() == 'double')
+            self.pathinfo['safe'] = self.path_in_safe_area()
 
-        self.pathinfo['double_gripper'] = (
-            self.current_tool.strip().lower() == 'double')
-        self.pathinfo['safe'] = self.path_in_safe_area()
-
-        self.check_recovery_needed()
-
-        if self.executing_recovery:
-            self.follow_recovery_process()
+            self.check_recovery_needed()
+            if self.executing_recovery:
+                self.follow_recovery_process()
+        else:
+            # TO DO: CHECK RECOVERY FOR ISARA2
+            pass
 
 #        if self.pathinfo['running']:
 #            self.debug("path running '%(double_gripper)s %(pathname)8s /"
 #                       " idle=%(idle)s / home=%(home)s / ri1=%(in_area1)s /"
 #                       " ri2 = %(in_area2)s / safe = %(safe)s'" % self.pathinfo)
 
-
-
         return status_dict
 
     def check_recovery_needed(self):
-        if self.ri1_count == 1 and self.pathinfo['pathname'] in self.check_paths_get:
-            if self.is_som:
-                self.recovery_type = RECOVER_GET_FAILED
-                self._is_recovery_needed = True
-                self.warn("RECOVER_GET_FAILED needed!")
-                return
-
         self._is_recovery_needed = False
-        return False
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            if self.ri1_count == 1 and self.pathinfo['pathname'] in self.check_paths_get:
+                if self.is_som:
+                    self.recovery_type = RECOVER_GET_FAILED
+                    self._is_recovery_needed = True
+                    self.warn("RECOVER_GET_FAILED needed!")
+        elif self.model == MODEL_ISARA2:
+            pass
+
+        return self._is_recovery_needed
 
     def is_recovery_needed(self):
         return self._is_recovery_needed
@@ -1627,14 +2083,14 @@ class CS8Connection:
                     self.recovery_phase = 2
             elif self.recovery_phase == 2:
                 # restore sample info on diff
-                if self.model is MODEL_ISARA:
+                if self.model == MODEL_ISARA:
                     puck_lid = self.puck_before_path
                 else:
                     puck_lid = self.lid_before_path
                 sample = self.sample_before_path
                 # get the type of sample from lid and cassette type if not ISARA
                 sample_type = 0
-                if not MODEL_ISARA:
+                if self.model == MODEL_CATS:
                     # Get type by lid [2,2,2,1,1,1,2,2,2] -> [2,1,2]
                     sample_type_by_lid = self.get_puck_types()[0::3]
                     # Map spine/unipuck definitions:
@@ -1653,65 +2109,87 @@ class CS8Connection:
                 self.executing_recovery = False
 
     def path_in_safe_area(self):
-        if not self.pathinfo['running']:
-            self.is_running = False
-            self.is_safe = True
-            self.ri1_count = 0
-            self.ri2_count = 0
-            self.is_inr1 = False
-            self.is_inr2 = False
-            return
-
-        if self.pathinfo['running'] and self.is_running is False:
-            self.is_running = True
-
-            if self.pathinfo['pathname'] not in self.check_paths_all:
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            if not self.pathinfo['running']:
+                self.is_running = False
                 self.is_safe = True
-            else:
-                self.is_safe = False
                 self.ri1_count = 0
                 self.ri2_count = 0
                 self.is_inr1 = False
                 self.is_inr2 = False
+                return
 
-        if self.pathinfo['pathname'] not in self.check_paths_all:
-            return self.is_safe
+            if self.pathinfo['running'] and self.is_running is False:
+                self.is_running = True
 
-        # area1 became True
-        if self.pathinfo['in_area1'] and not self.is_inr1:
-            self.is_inr1 = True
-
-        # area1 became False
-        if not self.pathinfo['in_area1'] and self.is_inr1:
-            self.ri1_count += 1
-            self.is_inr1 = False
-
-        # area2 became True
-        if self.pathinfo['in_area2'] and not self.is_inr2:
-            self.is_inr2 = True
-
-        # area2 became False
-        if not self.pathinfo['in_area2'] and self.is_inr2:
-            self.ri2_count += 1
-            self.is_inr2 = False
-
-            if self.pathinfo['double_gripper']:
-                if self.ri2_count > 0:
+                if self.pathinfo['pathname'] not in self.check_paths_all:
                     self.is_safe = True
-            elif self.pathinfo['pathname'] in self.check_paths_grp1:
-                if self.ri2_count > 0:
-                    self.is_safe = True
-            elif self.pathinfo['pathname'] in self.check_paths_grp2:
-                if self.ri2_count > 1:
-                    self.is_safe = True
+                else:
+                    self.is_safe = False
+                    self.ri1_count = 0
+                    self.ri2_count = 0
+                    self.is_inr1 = False
+                    self.is_inr2 = False
+
+            if self.pathinfo['pathname'] not in self.check_paths_all:
+                return self.is_safe
+
+            # area1 became True
+            if self.pathinfo['in_area1'] and not self.is_inr1:
+                self.is_inr1 = True
+
+            # area1 became False
+            if not self.pathinfo['in_area1'] and self.is_inr1:
+                self.ri1_count += 1
+                self.is_inr1 = False
+
+            # area2 became True
+            if self.pathinfo['in_area2'] and not self.is_inr2:
+                self.is_inr2 = True
+
+            # area2 became False
+            if not self.pathinfo['in_area2'] and self.is_inr2:
+                self.ri2_count += 1
+                self.is_inr2 = False
+
+                if self.pathinfo['double_gripper']:
+                    if self.ri2_count > 0:
+                        self.is_safe = True
+                elif self.pathinfo['pathname'] in self.check_paths_grp1:
+                    if self.ri2_count > 0:
+                        self.is_safe = True
+                elif self.pathinfo['pathname'] in self.check_paths_grp2:
+                    if self.ri2_count > 1:
+                        self.is_safe = True
+        elif self.model == MODEL_ISARA2:
+            pass ### DO ABOVE BUT FOR ISARA2!
 
         return self.is_safe
+
+    def parse_cryovision_feedback_data(self, presence_data_string):
+        presences = presence_data_string.split('|')
+        try:
+            pucks_presence = int(presences[0])
+        except:
+            pass # LOG SOMETHING!
+        else:
+            puck_presence = [0, ] * self.nb_pucks
+            for i in range(self.nb_pucks):
+                try:
+                    samples = int(presences[i+1])
+                except:
+                    break
+                else:
+                    puck_presence[i] = samples
+                    
+            self.puck_presence = puck_presence
 
 
 if __name__ == '__main__':
     import time
     cs8 = CS8Connection()
     cs8.connect('bl13cats.cells.es', 1000, 10000)
+    #cs8.connect('bl06isara2.cells.es', 1000, 10000)
     print('Check monitoring')
     print(cs8.state())
     print(cs8.di())
