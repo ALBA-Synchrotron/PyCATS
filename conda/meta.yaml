@@ -17,8 +17,8 @@ build:
   noarch: python
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
   entry_points:
-    - PyCATS = pycats.tango.server:main
-    - catsmonitor = pycats.gui.tango_monitor:run
+    - PyCATS = PyCATS.tango.server:main
+    - catsmonitor = PyCATS.gui.tango_monitor:run
 
 requirements:
   host:

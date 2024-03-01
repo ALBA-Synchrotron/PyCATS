@@ -21,7 +21,7 @@ if SPHINX:
     setup_requirements += ['sphinx', 'sphinx-argparse', 'sphinx_rtd_theme']
 
 setup(
-    name="pycats",
+    name="PyCATS",
     description='Library for the CATS Irelec sample changer.',
     version=__version__,
     author="Guifre Cuni",
@@ -50,10 +50,10 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'pyCATS = pycats.tango.server:run',
+            'PyCATS = PyCATS.tango.server:run',
         ],
         'gui_scripts': [
-            'cats-monitor = pycats.gui.tango_monitor:run [gui]'
+            'cats-monitor = PyCATS.gui.tango_monitor:run [gui]'
         ]
     },
     install_requires=requirements,

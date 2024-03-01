@@ -1,4 +1,4 @@
-from pycats.tango.server import run
+from PyCATS.tango.server import run
 
 if __name__ == "__main__":
     run()
