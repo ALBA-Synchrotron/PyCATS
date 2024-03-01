@@ -21,7 +21,10 @@ def get_logger(name='root'):
     fhlr = TimedRotatingFileHandler(filename=FILENAME,
                                     when='midnight',
                                     backupCount=30)
-    os.chmod(FILENAME, 0o666)
+    try:
+        os.chmod(FILENAME, 0o666)
+    except:
+        pass
     fhlr.setFormatter(formatter)
     logger.addHandler(fhlr)
 
