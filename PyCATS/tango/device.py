@@ -1566,6 +1566,9 @@ class ISARA2(CATS):
     def read_PathRunning(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['PathRunning']])
 
+    def read_PathSafe(self, attr): attr.set_value(
+        self.cs8connection.is_path_safe())
+
     def read_PathPaused(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['PathPaused']])
 
@@ -1932,6 +1935,9 @@ class ISARA2(CATS):
     def dc_sethighln2(self, high_threshold): return self.cs8connection.dc_sethighln2(high_threshold)
     def dc_setlowln2(self, low_threshold): return self.cs8connection.dc_setlowln2(low_threshold)
 
+    def setdewardrytimer(self, timer): return self.cs8connection.setdewardrytimer(timer)
+    def setdewarfillingtimer(self, timer): return self.cs8connection.setdewarfillingtimer(timer)
+
     def setmaxsoaktime(self, max_soak_time): return self.cs8connection.setmaxsoaktime(max_soak_time)
 
     def setmaxsoaknb(self, max_soak_nb): return self.cs8connection.setmaxsoaknb(max_soak_nb)
@@ -2081,6 +2087,7 @@ class ISARA2Class(CATSClass):
         'NumPlateOnDiff': [[DevShort, SCALAR, READ]],
         'Barcode': [[DevString, SCALAR, READ]],
         'PathRunning': [[DevBoolean, SCALAR, READ]],
+        'PathSafe': [[DevBoolean, SCALAR, READ]],
         'PathPaused': [[DevBoolean, SCALAR, READ]],
         'SpeedRatio': [[DevFloat, SCALAR, READ]],
         'LN2Regulating': [[DevBoolean, SCALAR, READ]],
@@ -2273,6 +2280,8 @@ class ISARA2Class(CATSClass):
         'dc_reguloff': [[DevVoid], [DevString], ],
         'dc_sethighln2': [[DevFloat], [DevString], ],
         'dc_setlowln2': [[DevFloat], [DevString], ],
+        'setdewardrytimer': [[DevUShort, 'timeout in minutes to stop drying procedure: 30..720'], [DevString], ],
+        'setdewarfillingtimer': [[DevUShort, 'timeout in minutes to stop LN2 regulation: 80..150'], [DevString], ],
 
         # Heater commands
         'heateron': [[DevVoid], [DevString], ],

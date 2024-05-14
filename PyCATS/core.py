@@ -695,25 +695,31 @@ class CS8Connection:
         self.is_safe = False
         self.ri1_count = 0
         self.ri2_count = 0
+        self.ri3_count = 0
+        self.ri4_count = 0
         self.is_inr1 = False
         self.is_inr2 = False
+        self.is_inr3 = False
+        self.is_inr4 = False
         self.executing_recovery = False
 
         # grp1 contains paths with one single passage through diffr areas
-        self.check_paths_grp1 = ['get', 'put', 'put_bcrd', 'get_HT', 'put_HT']
+        self.check_paths_grp1 = [ 'get', 'put', 'put_bcrd', 'get_HT', 'put_HT', 'getht', 'putht' ]
 
         # grp2 contains paths with two passages through diffr areas
         # note: for unipuck double gripper still it is only one pass for all
-        self.check_paths_grp2 = ['getput', 'getput_bcrd', 'getput_HT']
+        self.check_paths_grp2 = [ 'getput', 'getput_bcrd', 'getput_HT', 'getputht' ]
 
-        # get contains paths including a get operation (to detect recovery
-        # needed)
+        # get contains paths including a get operation (to detect recovery needed)
         self.check_paths_get = [
             'getput',
             'getput_bcrd',
             'getput_HT',
             'get',
-            'get_HT']
+            'get_HT',
+            'getht',
+            'getputht',
+        ]
 
         self.check_paths_all = self.check_paths_grp1 + self.check_paths_grp2
 
@@ -775,7 +781,7 @@ class CS8Connection:
                 self.puck_types[i] = PUCK_IGNORE
 
         if self.model == MODEL_ISARA2:
-            self.puck_presence = [0, ] * self.nb_pucks
+            self.puck_presence = [False, ] * self.nb_pucks
 
     def get_number_pucks(self):
         return self.nb_pucks
@@ -1665,6 +1671,10 @@ class CS8Connection:
 
     def dc_setlowln2(self, low_threshold): return self.operate('dc_setlowln2(%)' % int(low_threshold))
 
+    def setdewardrytimer(self, timer): return self.operate('setdewardrytimer(%)' % int(timer))
+
+    def setdewarfillingtimer(self, timer): return self.operate('setdewarfillingtimer(%)' % int(timer))
+
     # 3.6.5.6 Maintenance commands
     def openlid1(self): return self.operate('openlid1')
 
@@ -1687,15 +1697,17 @@ class CS8Connection:
     def closetool(self): return self.operate('closetool')
 
     def opentool2(self):
-        cmd = 'opentool2'
         if self.model == MODEL_ISARA2:
             cmd = 'opentoolb'
+        else:
+            cmd = 'opentool2'
         return self.operate(cmd)
 
     def closetool2(self):
-        cmd = 'closetool2'
         if self.model == MODEL_ISARA2:
             cmd = 'closetoolb'
+        else:
+            cmd = 'closetool2'
         return self.operate(cmd)
 
     def magneton(self): return self.operate('magneton')
@@ -1733,41 +1745,37 @@ class CS8Connection:
             return self.operate('setspeed(%.2f)' % speed_setpoint)
         raise NotImplementedError
 
-    def setautocloselidtimer(self, speed_percent):
+    def setautocloselidtimer(self, time_to_close_lid):
         if self.model == MODEL_ISARA2:
-            # DO STUFF HERE!!!
-            raise NotImplementedError
+            return self.operate('setautocloselidtimer(%)' % int(time_to_close_lid))
         raise NotImplementedError
 
-    def setmaxsoaktime(self, max_soak_time):
+    def setmaxsoaktime(self, time_to_schedule_soaking):
         if self.model == MODEL_ISARA2:
-            # DO STUFF HERE!!!
-            raise NotImplementedError
+            return self.operate('setmaxsoaktime(%)' % int(time_to_schedule_soaking))
         raise NotImplementedError
 
-    def setmaxsoaknb(self, max_soak_nb):
+    def setmaxsoaknb(self, soak_cycle_nb):
         if self.model == MODEL_ISARA2:
-            # DO STUFF HERE!!!
-            raise NotImplementedError
+            return self.operate('setmaxsoaknb(%)' % int(soak_cycle_nb))
         raise NotImplementedError
 
-    def setgrippercoolingtimer(self, timer):
+    def setgrippercoolingtimer(self, soaking_time):
         if self.model == MODEL_ISARA2:
-            # DO STUFF HERE!!!
-            raise NotImplementedError
+            return self.operate('setgrippercoolingtimer(time(%)' % int(soaking_time))
         raise NotImplementedError
 
-    def setautodrytimer(self, timer):
+    def setautodrytimer(self, time_to_dry_gripper):
         if self.model == MODEL_ISARA2:
-            # DO STUFF HERE!!!
-            raise NotImplementedError
+            return self.operate('setautodrytimer(time(%)' % int(time_to_dry_gripper))
         raise NotImplementedError
 
     # These 3 methods are not in the official documentation (ALBA specific)
     def clear_memory(self):
-        cmd = 'clear memory'
         if self.model == MODEL_ISARA2:
             cmd = 'clearmemory'
+        else:
+            cmd = 'clear memory'
         return self.operate(cmd)
 
     def reset_parameters(self):
@@ -1969,15 +1977,13 @@ class CS8Connection:
                         map(bool, [int(ch) for ch in di2_ans]))
             except Exception:
                 self.puck_presence = [False, ] * len(self.nb_pucks)
-
         elif self.model == MODEL_ISARA2:
-            """
             try:
                 self.puck_presence = [bool(x) for x in do_values[56:85]]
             except Exception:
+                self.error("unable to understand puck presence")
                 self.puck_presence = [False, ] * len(self.nb_pucks)
-            """
-            self.parse_cryovision_feedback_data(status_dict['CRYOVIS_FEEDBACK_DATA'])
+            #self.parse_cryovision_feedback_data(status_dict['CRYOVIS_FEEDBACK_DATA'])
         else:
             self.puck_presence = [False, ] * self.nb_pucks
             for i in range(self.nb_pucks):
@@ -2018,9 +2024,28 @@ class CS8Connection:
                 self.pathinfo['running'] = is_running
                 self.pathinfo['pathname'] = status_dict['PATH_NAME']
         elif self.model == MODEL_ISARA2:
-            # TO DO: UPDATE ABOVE VARIABLES FOR ISARA2
-            self.pathinfo['running'] = is_running
-            self.pathinfo['pathname'] = status_dict['PATH_NAME']
+            if is_running and not self.pathinfo['running']:
+                self.sample_before_path = status_dict["NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                self.puck_before_path = status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
+                self.latest_path = status_dict["PATH_NAME"]
+
+            self.pathinfo['idle'] = status_dict['DO_PRO2_IDL']
+            self.pathinfo['home'] = status_dict['DO_PRO3_RAH']
+            self.pathinfo['in_area1'] = status_dict['DO_PRO4_RI1']
+            self.pathinfo['in_area2'] = status_dict['DO_PRO5_RI2'] 
+            self.pathinfo['in_area3'] = status_dict['DO_PRO6_RI3']
+            self.pathinfo['in_area4'] = status_dict['DO_PRO7_RI4'] 
+            self.is_som = status_dict['DO_PRI4_SOM']
+            self.is_idle = status_dict['DO_PRO2_IDL']
+
+            self.current_tool = status_dict['TOOL_NAME']
+
+            if self.executing_recovery:
+                self.pathinfo['running'] = True # This is not implemented...
+                self.pathinfo['pathname'] = "recovery"
+            else:
+                self.pathinfo['running'] = is_running
+                self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
         if self.model in (MODEL_CATS, MODEL_ISARA):
             self.pathinfo['double_gripper'] = (
@@ -2030,9 +2055,13 @@ class CS8Connection:
             self.check_recovery_needed()
             if self.executing_recovery:
                 self.follow_recovery_process()
-        else:
-            # TO DO: CHECK RECOVERY FOR ISARA2
-            pass
+        elif self.model == MODEL_ISARA2:
+            self.pathinfo['double_gripper'] = (self.current_tool.strip().lower() == 'doublegripper')
+            self.pathinfo['safe'] = self.path_in_safe_area() # REVIEW THIS METHOD FOR ISARA2!!!
+
+            self.check_recovery_needed() # This is not implemented...
+            if self.executing_recovery:
+                self.follow_recovery_process()
 
 #        if self.pathinfo['running']:
 #            self.debug("path running '%(double_gripper)s %(pathname)8s /"
@@ -2041,14 +2070,17 @@ class CS8Connection:
 
         return status_dict
 
+    # To do: review this method for ISARA2 model
     def check_recovery_needed(self):
         self._is_recovery_needed = False
+
         if self.model in (MODEL_CATS, MODEL_ISARA):
             if self.ri1_count == 1 and self.pathinfo['pathname'] in self.check_paths_get:
                 if self.is_som:
                     self.recovery_type = RECOVER_GET_FAILED
                     self._is_recovery_needed = True
                     self.warn("RECOVER_GET_FAILED needed!")
+
         elif self.model == MODEL_ISARA2:
             pass
 
@@ -2068,46 +2100,52 @@ class CS8Connection:
         self.recovery_phase = 0
         return "started"
 
+    # To do: review this method for ISARA2 model
     def follow_recovery_process(self):
-        if self.recovery_type == RECOVER_GET_FAILED:
-                #
-            if self.recovery_phase == 0:
-                # abort
-                self.abort()
-                self.warn("Recovering from GET_FAILED. Phase0 (abort)")
-                self.recovery_phase = 1
-            elif self.recovery_phase == 1:
-                self.warn("Recovering from GET_FAILED. Phase1 (waiting abort)")
-                # waiting abort to finish
-                if self.is_idle:
-                    self.recovery_phase = 2
-            elif self.recovery_phase == 2:
-                # restore sample info on diff
-                if self.model == MODEL_ISARA:
-                    puck_lid = self.puck_before_path
+        if self.model in (MODEL_CATS, MODEL_ISARA):
+            if self.recovery_type == RECOVER_GET_FAILED:
+                    #
+                if self.recovery_phase == 0:
+                    # abort
+                    self.abort()
+                    self.warn("Recovering from GET_FAILED. Phase0 (abort)")
+                    self.recovery_phase = 1
+                elif self.recovery_phase == 1:
+                    self.warn("Recovering from GET_FAILED. Phase1 (waiting abort)")
+                    # waiting abort to finish
+                    if self.is_idle:
+                        self.recovery_phase = 2
+                elif self.recovery_phase == 2:
+                    # restore sample info on diff
+                    if self.model == MODEL_ISARA:
+                        puck_lid = self.puck_before_path
+                    else:
+                        puck_lid = self.lid_before_path
+                    sample = self.sample_before_path
+                    # get the type of sample from lid and cassette type if not ISARA
+                    sample_type = 0
+                    if self.model == MODEL_CATS:
+                        # Get type by lid [2,2,2,1,1,1,2,2,2] -> [2,1,2]
+                        sample_type_by_lid = self.get_puck_types()[0::3]
+                        # Map spine/unipuck definitions:
+                        # IRELEC-CATS server: 0-spine/1-unipuck
+                        # PyCATS TANGO: 1-spine/2-unipuck (cassette_type)
+                        sample_type = sample_type_by_lid[puck_lid - 1] - 1
+                    self.warn(
+                        "Recovering from GET_FAILED. Phase2 (setondiff %s, %s, %s)" %
+                        (puck_lid, sample, sample_type))
+                    self.setondiff(puck_lid, sample, sample_type)
+                    # home
+                    self.home(2)
+                    self.recovery_phase = 3
                 else:
-                    puck_lid = self.lid_before_path
-                sample = self.sample_before_path
-                # get the type of sample from lid and cassette type if not ISARA
-                sample_type = 0
-                if self.model == MODEL_CATS:
-                    # Get type by lid [2,2,2,1,1,1,2,2,2] -> [2,1,2]
-                    sample_type_by_lid = self.get_puck_types()[0::3]
-                    # Map spine/unipuck definitions:
-                    # IRELEC-CATS server: 0-spine/1-unipuck
-                    # PyCATS TANGO: 1-spine/2-unipuck (cassette_type)
-                    sample_type = sample_type_by_lid[puck_lid - 1] - 1
-                self.warn(
-                    "Recovering from GET_FAILED. Phase2 (setondiff %s, %s, %s)" %
-                    (puck_lid, sample, sample_type))
-                self.setondiff(puck_lid, sample, sample_type)
-                # home
-                self.home(2)
-                self.recovery_phase = 3
-            else:
-                self.warn("recovering from GET_FAILED. Phase3 (end recovery)")
-                self.executing_recovery = False
+                    self.warn("recovering from GET_FAILED. Phase3 (end recovery)")
+                    self.executing_recovery = False
 
+        elif self.model == MODEL_ISARA2:
+            pass # Implement this...
+
+    # To do: review this method for ISARA2 model
     def path_in_safe_area(self):
         if self.model in (MODEL_CATS, MODEL_ISARA):
             if not self.pathinfo['running']:
@@ -2161,8 +2199,25 @@ class CS8Connection:
                 elif self.pathinfo['pathname'] in self.check_paths_grp2:
                     if self.ri2_count > 1:
                         self.is_safe = True
+
         elif self.model == MODEL_ISARA2:
-            pass ### DO ABOVE BUT FOR ISARA2!
+            if not self.pathinfo['running']:
+                self.is_running = False
+                self.is_safe = True
+                self.ri1_count = 0
+                self.ri2_count = 0
+                self.ri3_count = 0
+                self.ri4_count = 0
+                self.is_inr1 = False
+                self.is_inr2 = False
+                self.is_inr3 = False
+                self.is_inr4 = False
+                return
+
+            if self.pathinfo['running'] and self.is_running is False:
+                self.is_running = True
+
+            self.is_safe = True # Implement this...
 
         return self.is_safe
 
@@ -2171,7 +2226,7 @@ class CS8Connection:
         try:
             pucks_presence = int(presences[0])
         except:
-            pass # LOG SOMETHING!
+            self.error("unable to parse cryovision feedback data: {}".format(str(presence_data_string)))
         else:
             puck_presence = [0, ] * self.nb_pucks
             for i in range(self.nb_pucks):
