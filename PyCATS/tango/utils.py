@@ -227,7 +227,7 @@ ISARA22TANGO = {
     'SEQ_READY': 'di_Ready',
     'SEQ_RUNNING': 'di_Running',
     'SEQ_PAUSED': 'di_Paused',
-    'NOFAULT_STATE': 'di_NoFaultState',
+    'FAULT_STATE': 'di_FaultState',
     'DEBUG_MODE': 'di_DebugMode',
     'WARNING_STATE': 'di_WarningState',
     'MANUAL_SEQ_MODE': 'di_ManualMode',

@@ -1658,8 +1658,8 @@ class ISARA2(CATS):
     def read_di_Paused(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['di_Paused']])
 
-    def read_di_NoFaultState(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['di_NoFaultState']])
+    def read_di_FaultState(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_FaultState']])
 
     def read_di_DebugMode(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['di_DebugMode']])
@@ -1968,44 +1968,44 @@ class ISARA2(CATS):
         return self.cs8connection.toolcalibration(tool)
 
     def barcode(self, argin):
-        tool, puck, sample, type, dis_smp_det = argin
+        tool, puck, sample, type, toolcal = argin
         raise NotImplementedError
         #return self.cs8connection.barcode(tool, puck, sample. type)
 
     def put(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def put_bcrd(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def get(self, argin):
-        tool, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, toolcal, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def get_bcrd(self, argin):
-        tool, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def getput(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+        return self.cs8connection.getput(tool,puck,sample,type,0,x_shift,y_shift,z_shift)
 
     def getput_bcrd(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def pick(self, argin):
-        tool, puck, sample, type, dis_smp_det = argin
+        tool, puck, sample, type, toolcal = argin
         raise NotImplementedError
 
     def pick_bcrd(self, argin):
-        tool, puck, sample, type, dis_smp_det = argin
+        tool, puck, sample, type, toolcal = argin
         raise NotImplementedError
 
     def gotodif(self, argin):
-        tool, puck_lid, sample, type, dis_smp_det = argin
+        tool, puck_lid, sample, type, toolcal = argin
         raise NotImplementedError
 
     def get_HT(self, argin):
@@ -2013,12 +2013,12 @@ class ISARA2(CATS):
         raise NotImplementedError
 
     def put_HT(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
         raise NotImplementedError
 
     def getput_HT(self, argin):
-        tool, puck, sample, type, dis_smp_det, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
+        return self.cs8connection.getput_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift, puck_lid=puck)
 
     def back_HT(self, tool):
         raise NotImplementedError
@@ -2128,7 +2128,7 @@ class ISARA2Class(CATSClass):
         'di_Ready': [[DevBoolean, SCALAR, READ]],
         'di_Running': [[DevBoolean, SCALAR, READ]],
         'di_Paused': [[DevBoolean, SCALAR, READ]],
-        'di_NoFaultState': [[DevBoolean, SCALAR, READ]],
+        'di_FaultState': [[DevBoolean, SCALAR, READ]],
         'di_DebugMode': [[DevBoolean, SCALAR, READ]],
         'di_WarningState': [[DevBoolean, SCALAR, READ]],
         'di_ManualMode': [[DevBoolean, SCALAR, READ]],
@@ -2312,21 +2312,21 @@ class ISARA2Class(CATSClass):
         'toolcalibration': [[DevUShort, 'tool'], [DevString], ],
 
         # Sample trajectory commands
-        'barcode': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection'], [DevString], ],
-        'put': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'put_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'barcode': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
+        'put': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'put_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'get': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
         'get_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
-        'getput': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'getput_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'pick': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection'], [DevString], ],
-        'pick_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection'], [DevString], ],
-        'gotodif': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection'], [DevString], ],
+        'getput': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'getput_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'pick': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
+        'pick_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
+        'gotodif': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
 
         # Hot-puck trajectory commands
         'get_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
-        'put_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'getput_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:disable sample detection\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'put_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
+        'getput_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'back_HT': [[DevUShort, 'tool'], [DevString], ],
 
         # Plate trajectory commands
