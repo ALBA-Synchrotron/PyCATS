@@ -1,9 +1,10 @@
 import time
 import logging
+import traceback
 from tango import (Device_4Impl, DeviceClass, DevState, DevVoid, DevULong,
                    DevUShort, DevFloat, DevBoolean, DevString, DevShort,
-                   DevVarStringArray, ArgType, READ, SCALAR, SPECTRUM)
-from .utils import CATS2TANGO, TANGO2CATS, ISARA22TANGO, TANGO2ISARA2
+                   DevVarStringArray, READ, SCALAR, SPECTRUM)
+from .utils import CATS2TANGO, TANGO2CATS, ISARA22TANGO, TANGO2ISARA2, TOOL2ISARA2NUMBER
 from ..messages import di_help, do_help, message_help
 from ..core import CS8Connection
 from ..logger import get_logger
@@ -25,7 +26,6 @@ from .. import __version__
 #                 new_status_dict = self.ds.cs8connection.getStatusDict()
 #                 self.ds.processStatusDict(new_status_dict)
 #             except Exception as e:
-#                 import traceback
 #                 print("error reading status", traceback.format_exc())
 #                 self.ds.notifyNewState(
 #                     DevState.ALARM,
@@ -44,13 +44,19 @@ class CATS(Device_4Impl):
         self.logger = get_logger(__name__)
         # self.status_update_thread = None
         self.status_dict = {}
-        self.init_device()
+        self.state_dict = {}
+        self.last_status_update = 0.0
 
         # Tell Tango that the attributes have events
-        for attr_name in list(self.get_device_class().attr_list.keys()):
-            self.set_change_event(attr_name, True, False)
         self.set_change_event('State', True, False)
         self.set_change_event('Status', True, False)
+        self.logger.debug('PyCATS: managing events on attributes {} and {}'.format("State", "Status"))
+        for attr_name in list(self.get_device_class().attr_list.keys()):
+            #self.set_change_event(attr_name, True, False)
+            self.set_change_event(attr_name, True)
+            self.logger.debug('PyCATS: managing events on attribute {}'.format(attr_name))
+
+        self.init_device()
 
         self.logger.info('%s state dictionary updates every %s ms' % (str(klass), self.update_freq_ms))
         self.logger.info('Ready to accept requests.')
@@ -59,44 +65,41 @@ class CATS(Device_4Impl):
         self.ROBOT2TANGO = CATS2TANGO
 
     def update_status(self):
-        if self.cs8connection.connected:
-            # self.logger.debug("getting status dict...")
-            try:
-                new_status_dict = self.cs8connection.get_status_dict()
-                self.process_status_dict(new_status_dict)
-            except Exception as e:
-                import traceback
-                self.logger.error("Error reading status: %s" % traceback.format_exc())
-                self.notify_new_state(
-                    DevState.ALARM,
-                    'Exception when getting status from robot server:\n%s' %
-                    str(e))
-            time.sleep(self.update_freq_ms / 1000.)
-        else:
-            # self.logger.debug("Requesting reconnection...")
-            time.sleep(self.update_freq_ms / 1000.)
+        updated = None
+        t = time.time()
+        if (t - self.last_status_update) > (self.update_freq_ms / 1000.):
+            if self.cs8connection.connected:
+                self.last_status_update = t
+                # self.logger.debug("getting status dict...")
+                try:
+                    new_status_dict = self.cs8connection.get_status_dict()
+                    self.process_status_dict(new_status_dict)
+                except Exception as e:
+                    self.logger.error("Error reading status: %s" % traceback.format_exc())
+                    self.notify_new_state(DevState.ALARM, 'Exception when getting status from robot server:\n%s' % str(e))
+                else:
+                    updated = True
+        return updated
 
     def check_reconnection(self):
         if not self.cs8connection.connected:
-            self.cs8connection.reconnect(every=self.reconnection_interval,
-                                         timeout=self.reconnection_timeout)
+            self.cs8connection.reconnect(every=self.reconnection_interval, timeout=self.reconnection_timeout)
 
     def init_device(self):
         self.get_device_properties(self.get_device_class())
         try:
-            self.cs8connection.set_model(self.model)
+            number_of_areas = len(self.pro_areas)
+        except:
+            number_of_areas = None
+        try:
+            self.cs8connection.set_model(self.model, number_of_areas=number_of_areas)
             self.cs8connection.set_puck_types(self.puck_types)
-            self.cs8connection.connect(
-                self.host, self.port_operate, self.port_monitor)
+            self.cs8connection.connect(self.host, self.port_operate, self.port_monitor)
             # self.status_update_thread = StatusUpdateThread(self)
             # self.status_update_thread.start()
-            self.notify_new_state(
-                DevState.ON,
-                'Connected to the robot system.')
+            self.notify_new_state(DevState.ON, 'Connected to the robot system.')
         except Exception as e:
-            self.notify_new_state(
-                DevState.ALARM,
-                'Exception connecting to the robot system:\n' + str(e))
+            self.notify_new_state(DevState.ALARM, 'Exception connecting to the robot system:\n' + str(e))
 
     def delete_device(self):
         # if self.status_update_thread is not None:
@@ -109,8 +112,22 @@ class CATS(Device_4Impl):
         if status is None:
             status = 'Device is in %s state.' % state
         self.set_status(status)
-        self.push_change_event('State', state)
-        self.push_change_event('Status', status)
+        state_changed = None
+        try:
+            old_state = self.state_dict['State']
+            old_status = self.state_dict['Status']
+        except KeyError:
+            state_changed = True
+        else:
+            state_changed = (old_state != state) # Disregard changes in the status string...
+        if state_changed:
+            self.state_dict['State'] = state
+            self.state_dict['Status'] = status
+            self.logger.debug("PyCATS: pushing change-event for State={} Status={}".format(state, status))
+            self.push_change_event('State', state)
+            self.push_change_event('Status', status)
+        else:
+            self.state_dict['Status'] = status # Make sure status string is nevertheless up-to-date
 
     def process_status_dict(self, new_status_dict):
 
@@ -119,9 +136,33 @@ class CATS(Device_4Impl):
                 self.status_dict[catsk] = new_value
                 # Notify any tango client that the value has changed
                 #print("UPDATING",catsk,"value",new_value)
-                attr_name = self.ROBOT2TANGO[catsk]
-                #print("  TANGO ATTRIBUTE IS",attr_name)
-                self.push_change_event(attr_name, new_value)
+                try:
+                    attr_name = self.ROBOT2TANGO[catsk]
+                    if isinstance(new_value, dict) or isinstance(new_value, list) or isinstance(new_value, tuple): # Mask "structured" values
+                        self.logger.debug("PyCATS: pushing change-event for {}".format(attr_name))
+                    elif attr_name.endswith("Temperature"): # Mask temperatures
+                        continue
+                    elif attr_name.endswith("pos"): # Mask positions
+                        continue
+                    else:
+                        self.logger.debug("PyCATS: pushing change-event for {} with value {}".format(attr_name, new_value))
+                    self.push_change_event(attr_name, new_value)
+                except KeyError:
+                    pass
+                    #print("NO TANGO ATTRIBUTE FOR STATUS_DICT KEY", catsk)
+
+        presence_changed = None
+        new_presence = self.cs8connection.get_puck_presence() # No call to robot is made here, since internal variable is updated when generating new_status_dict
+        try:
+            old_presence = self.state_dict['CassettePresence']
+        except KeyError:
+            presence_changed = True
+        else:
+            presence_changed = (old_presence != new_presence)
+        if presence_changed:
+            self.state_dict['CassettePresence'] = new_presence
+            self.logger.debug("PyCATS: pushing change-event for CassettePresence")
+            self.push_change_event('CassettePresence', new_presence)
 
         new_status = 'Powered = %s\n' % \
                      self.status_dict[self.TANGO2ROBOT['Powered']]
@@ -256,11 +297,11 @@ class CATS(Device_4Impl):
     def read_NbCassettes(self, attr): attr.set_value(
         self.cs8connection.get_number_pucks())
 
-    def read_CassettePresence(self, attr): attr.set_value(
-        self.cs8connection.get_puck_presence())
+    def read_CassettePresence(self, attr):
+        attr.set_value(self.cs8connection.get_puck_presence())
 
-    def read_CassetteType(self, attr): attr.set_value(
-        self.cs8connection.get_puck_types())
+    def read_CassetteType(self, attr):
+        attr.set_value(self.cs8connection.get_puck_types())
 
     def read_LidSampleOnTool(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['LidSampleOnTool']])
@@ -833,7 +874,7 @@ class CATS(Device_4Impl):
         tool, puck, sample, type = argin
         return self.cs8connection.pick(tool, puck, sample, type)
 
-    def getpuckpick(self, argin):
+    def getputpick(self, argin):
         tool, puck_lid, sample, type, toolcal, x_shift, y_shift, z_shift = argin
         return self.cs8connection.getputpick(tool, puck_lid, sample, type,
                                              x_shift, y_shift, z_shift)
@@ -1062,7 +1103,6 @@ class CATS(Device_4Impl):
     def is_sample_on_diff(self):
         num_sample_on_diff = self.status_dict[self.TANGO2ROBOT['NumSampleOnDiff']]
         sample_on_magnet = self.status_dict[self.TANGO2ROBOT['di_PRI_SOM']]
-
         return (num_sample_on_diff != -1) or sample_on_magnet
 
 
@@ -1103,8 +1143,8 @@ class CATSClass(DeviceClass):
         'Path': [[DevString, SCALAR, READ]],
         'CatsModel': [[DevString, SCALAR, READ]],
         'NbCassettes': [[DevShort, SCALAR, READ]],
-        'CassettePresence': [[ArgType.DevShort, SPECTRUM, READ, 32]],
-        'CassetteType': [[ArgType.DevShort, SPECTRUM, READ, 32]],
+        'CassettePresence': [[DevShort, SPECTRUM, READ, 32]],
+        'CassetteType': [[DevShort, SPECTRUM, READ, 32]],
         'LidSampleOnTool': [[DevShort, SCALAR, READ]],
         'NumSampleOnTool': [[DevShort, SCALAR, READ]],
         'LidSampleOnDiff': [[DevShort, SCALAR, READ]],
@@ -1410,8 +1450,8 @@ class CATSClass(DeviceClass):
         'barcode': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:new sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:toolcal=0'], [DevString], ],
         'back': [[DevVarStringArray, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:toolcal=0'], [DevString], ],
         'transfer': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number\n2:sample number\n3:new puck or lid number\n4:new sample number\n5:type = 0:Actor 1:UniPuck (only cryotong)\n6:toolcal=0'], [DevString], ],
-        'pick': [[DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'], [DevString], ],
-        'getpuckpick': [[DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [DevString], ],
+        'pick': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)'], [DevString], ],
+        'getputpick': [[DevVarStringArray, 'StringArray:\n5:Double Gripper\n1:puck or lid number\n2:sample number\n3:type = 0:Actor 1:UniPuck (only cryotong)\n4:X_CATS shift (um)\n5:Y_CATS shift (um)\n6:Z_CATS shift (um)'], [DevString], ],
         'soak': [[DevVarStringArray, 'StringArray:\n0:tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper\n1:puck or lid number'], [DevString], ],
         'dry': [[DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [DevString], ],
         'dryhome': [[DevShort, 'tool = 0:Flange 1:Cryotong 2:EMBL/ESRF 3:Plates 4:Puck Detection 5:Double Gripper'], [DevString], ],
@@ -1514,10 +1554,217 @@ class ISARA2(CATS):
         CATS.__init__(self, klass, name)
         self.TANGO2ROBOT = TANGO2ISARA2
         self.ROBOT2TANGO = ISARA22TANGO
+        self.puckdata_dict = {
+            "cold": {
+                "barcode": [],
+                "group"  : [],
+            },
+            "hot": {
+                "barcode": [],
+                "group"  : [],
+            },
+        }
+        self.platedata_dict = {
+            "plate": {
+                "barcode": [],
+                "group"  : [],
+            }
+        }
+
+        try:
+            pri_som = str(self.pri_som)
+        except:
+            pass
+        else:
+            if len(pri_som):
+                self.ROBOT2TANGO[pri_som] = "do_SampleOnMagnet"
+                self.TANGO2ROBOT["do_SampleOnMagnet"] = pri_som
+                self.logger.info("PyCATS(ISARA2): sample-on-magnet configured to {}".format(pri_som))
+
+        try:
+            pro_mon = str(self.pro_mon)
+        except:
+            pass
+        else:
+            if len(pro_mon):
+                self.ROBOT2TANGO[pro_mon] = "do_MagnetOn"
+                self.TANGO2ROBOT["do_MagnetOn"] = pro_mon
+                self.logger.info("PyCATS(ISARA2): magnet-on configured to {}".format(pro_mon))
+
+        try:
+            pro_movcryoj = str(self.pro_movcryoj)
+        except:
+            pass
+        else:
+            if len(pro_movcryoj):
+                self.ROBOT2TANGO[pro_movcryoj] = "do_MoveCryoBack"
+                self.TANGO2ROBOT["do_MoveCryoBack"] = pro_movcryoj
+                self.logger.info("PyCATS(ISARA2): move-cryojet-back configured to {}".format(pro_movcryoj))
+
+        try:
+            pro_arm = list(self.pro_arm)
+        except:
+            pass
+        else:
+            if len(pro_arm):
+                try:
+                    pro_idle = str(pro_arm[0])
+                except:
+                    pass
+                else:
+                    if len(pro_idle):
+                        self.ROBOT2TANGO[pro_idle] = "do_Idle"
+                        self.TANGO2ROBOT["do_Idle"] = pro_idle
+                        self.logger.info("PyCATS(ISARA2): robot-arm-idle configured to {}".format(pro_idle))
+                try:
+                    pro_home = str(pro_arm[1])
+                except:
+                    pass
+                else:
+                    if len(pro_home):
+                        self.ROBOT2TANGO[pro_home] = "do_AtHome"
+                        self.TANGO2ROBOT["do_AtHome"] = pro_home
+                        self.logger.info("PyCATS(ISARA2): robot-arm-at-home configured to {}".format(pro_home))
+
+                try:
+                    pro_soak = str(pro_arm[2])
+                except:
+                    pass
+                else:
+                    if len(pro_soak):
+                        self.ROBOT2TANGO[pro_soak] = "do_AtSoak"
+                        self.TANGO2ROBOT["do_AtSoak"] = pro_soak
+                        self.logger.info("PyCATS(ISARA2): robot-arm-at-soak configured to {}".format(pro_soak))
+
+        try:
+            pro_areas = list(self.pro_areas)
+        except:
+            pass
+        else:
+            if len(pro_areas):
+                self.number_of_areas = len(pro_areas)
+                for area_num in range(5):
+                    try:
+                        pro_area_do = str(pro_areas[area_num])
+                    except:
+                        for remaining_area in range(area_num, 5):
+                            inarea_key = "do_InArea{}".format(remaining_area)
+                            inarea_do = self.TANGO2ROBOT[inarea_key]
+                            self.ROBOT2TANGO.pop(inarea_do)
+                            self.TANGO2ROBOT.pop(inarea_key)
+                            self.logger.debug('PyCATS(ISARA2): popping %s %s' % (inarea_do, inarea_key))
+                        self.number_of_areas = area_num
+                        break
+                    else:
+                        if len(pro_area_do):
+                            self.ROBOT2TANGO[pro_area_do] = "do_InArea{}".format(area_num)
+                            self.TANGO2ROBOT["do_InArea{}".format(area_num)] = pro_area_do
+                            self.logger.info("PyCATS(ISARA2): area/region-of-interest {} configured to {}".format(area_num, pro_area_do))
+                        else:
+                            for remaining_area in range(area_num, 5):
+                                inarea_key = "do_InArea{}".format(remaining_area)
+                                inarea_do = self.TANGO2ROBOT[inarea_key]
+                                self.ROBOT2TANGO.pop(inarea_do)
+                                self.TANGO2ROBOT.pop(inarea_key)
+                                self.logger.debug('PyCATS(ISARA2): popping %s %s' % (inarea_do, inarea_key))
+                            self.number_of_areas = area_num
+                            break
+                self.logger.info('PyCATS(ISARA2): number of areas is %d' % self.number_of_areas)
+
+        isara2_do_keys = {
+            'do_SampleOnMagnet': self.TANGO2ROBOT["do_SampleOnMagnet"],
+            'do_MagnetOn'      : self.TANGO2ROBOT["do_MagnetOn"],
+            'do_Idle'          : self.TANGO2ROBOT["do_Idle"],
+            'do_AtHome'        : self.TANGO2ROBOT["do_AtHome"],
+        }
+        try:
+            do_movcryoj = self.TANGO2ROBOT["do_MoveCryoBack"]
+        except KeyError:
+            pass
+        else:
+            isara2_do_keys["do_MoveCryoBack"] = do_movcryoj
+        try:
+            do_atsoak = self.TANGO2ROBOT["do_AtSoak"]
+        except KeyError:
+            pass
+        else:
+            isara2_do_keys["do_AtSoak"] = do_atsoak
+        for i in range(self.number_of_areas):
+            isara2_do_keys["do_InArea{}".format(i)] = self.TANGO2ROBOT["do_InArea{}".format(i)]
+        self.cs8connection.set_isara2_keys(isara2_do_keys)
+
+    def delete_device(self):
+        # if self.status_update_thread is not None:
+        #     self.status_update_thread.stopRunning()
+        self.status_dict = {}
+        self.puckdata_dict = {
+            "cold": {
+                "barcode": [],
+                "group"  : [],
+            },
+            "hot": {
+                "barcode": [],
+                "group"  : [],
+            },
+        }
+        self.platedata_dict = {
+            "plate": {
+                "barcode": [],
+                "group"  : [],
+            }
+        }
+        self.cs8connection.disconnect()
+
+    def update_status(self):
+        if CATS.update_status(self):
+            try:
+                new_sampledata_dict = self.cs8connection.get_sampledata_dict()
+                if isinstance(new_sampledata_dict, dict):
+                    try:
+                        self.process_sampledata_dict(new_sampledata_dict)
+                    except Exception as e:
+                        self.logger.error("Error parsing sampledata: %s" % traceback.format_exc())
+            except Exception as e:
+                self.logger.error("Error reading sampledata: %s" % traceback.format_exc())
+
+    def process_sampledata_dict(self, new_sampledata_dict):
+        # Update self.puckdata_dict["cold"]["matrix"] for ColdpuckBarcodes attribute
+        # Update self.puckdata_dict["cold"]["group"] for ColdpuckGroups attribute
+        # Update self.puckdata_dict["hot"]["matrix"] for HotpuckBarcodes attribute
+        # Update self.puckdata_dict["hot"]["group"] for HotpuckGroups attribute
+        # Update self.puckdata_dict["plate"]["matrix"] for PlateBarcodes attribute
+        # Update self.puckdata_dict["plate"]["group"] for PlateGroups attribute
+
+        for puck_type in ("cold", "hot"):
+            for data_key in ("barcode", "group"):
+                attribute_name = "{}puck{}s".format(puck_type.title(), data_key.title())
+                new_data = new_sampledata_dict[puck_type][data_key]
+                try:
+                    current_data = self.puckdata_dict[puck_type][data_key]
+                except KeyError:
+                    current_data = None
+                if new_data != current_data:
+                    self.puckdata_dict[puck_type][data_key] = new_data
+                    self.logger.debug("PyCATS: pushing change-event for {}".format(attribute_name))
+                    self.push_change_event(attribute_name, new_data)
+
+        for plate_type in ("plate",):
+            for data_key in ("barcode", "group"):
+                attribute_name = "{}{}s".format(plate_type.title(), data_key.title())
+                new_data = new_sampledata_dict[plate_type][data_key]
+                try:
+                    current_data = self.platedata_dict[plate_type][data_key]
+                except KeyError:
+                    current_data = None
+                if new_data != current_data:
+                    self.platedata_dict[plate_type][data_key] = new_data
+                    self.logger.debug("PyCATS: pushing change-event for {}".format(attribute_name))
+                    self.push_change_event(attribute_name, new_data)
 
     def is_sample_on_diff(self):
         num_sample_on_diff = self.status_dict[self.TANGO2ROBOT['NumSampleOnDiff']]
-        sample_on_magnet = self.status_dict[self.TANGO2ROBOT['do_PRI4_SOM']]
+        #sample_on_magnet = self.status_dict[self.TANGO2ROBOT['do_PRI4_SOM']]
+        sample_on_magnet = self.status_dict[self.TANGO2ROBOT['do_SampleOnMagnet']]
         return (num_sample_on_diff != -1) or sample_on_magnet
 
     #################################################################
@@ -1531,6 +1778,14 @@ class ISARA2(CATS):
 
     def read_FaultStatus(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['FaultStatus']])
+
+    def read_ToolNumber(self, attr):
+        tool_name = self.status_dict[self.TANGO2ROBOT['Tool']]
+        try:
+            num = TOOL2ISARA2NUMBER[tool_name]
+        except KeyError:
+            num = -1
+        attr.set_value(num)
 
     def read_Position(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['Position']])
@@ -1721,6 +1976,21 @@ class ISARA2(CATS):
     def read_di_ClassicGripperClosed(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['di_ClassicGripperClosed']])
 
+    def read_di_OpenLidReq(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_OpenLidReq']])
+
+    def read_di_CloseLidReq(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_CloseLidReq']])
+
+    def read_di_AirBlowerReq(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_AirBlowerReq']])
+
+    def read_di_AirSupplyReq(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_AirSupplyReq']])
+
+    def read_di_LN2RegulationReq(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['di_LN2RegulationReq']])
+
     def read_di_ArmOutOfDewar(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['di_ArmOutOfDewar']])
 
@@ -1818,29 +2088,69 @@ class ISARA2(CATS):
     def read_do_ResetProgMemReq(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['do_ResetProgMemReq']])
 
-    def read_do_PRI4_SOM(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRI4_SOM']])
+    def read_do_SampleOnMagnet(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['do_SampleOnMagnet']])
 
-    def read_do_PRI11_MON(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRI11_MON']])
+    def read_do_MagnetOn(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['do_MagnetOn']])
 
-    def read_do_PRO2_IDL(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO2_IDL']])
+    def read_do_MoveCryoBack(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_MoveCryoBack']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
 
-    def read_do_PRO3_RAH(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO3_RAH']])
+    def read_do_Idle(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['do_Idle']])
 
-    def read_do_PRO4_RI1(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO4_RI1']])
+    def read_do_AtHome(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['do_AtHome']])
 
-    def read_do_PRO5_RI2(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO5_RI2']])
+    def read_do_AtSoak(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_AtSoak']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
 
-    def read_do_PRO6_RI3(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO6_RI3']])
-
-    def read_do_PRO7_RI4(self, attr): attr.set_value(
-        self.status_dict[self.TANGO2ROBOT['do_PRO7_RI4']])
+    def read_do_InArea0(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_InArea0']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
+    def read_do_InArea1(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_InArea1']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
+    def read_do_InArea2(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_InArea2']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
+    def read_do_InArea3(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_InArea3']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
+    def read_do_InArea4(self, attr):
+        try:
+            val = self.status_dict[self.TANGO2ROBOT['do_InArea4']]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(val)
 
     def read_do_Puck1Presence(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['do_Puck1Presence']])
@@ -1916,6 +2226,72 @@ class ISARA2(CATS):
     def read_do_CloseClassGripObjDelReq(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['do_CloseClassGripObjDelReq']])
 
+    def read_MaxSoakTime(self, attr): # In seconds
+        attr.set_value(self.cs8connection.getmaxsoaktime())
+
+    def read_MaxSoakNb(self, attr): # In number-of-samples
+        attr.set_value(self.cs8connection.getmaxsoaknb())
+
+    def read_AutoCloseLidTimer(self, attr): # In minutes
+        attr.set_value(self.cs8connection.getautocloselidtimer())
+
+    def read_AutoDryTimer(self, attr): # In minutes
+        attr.set_value(self.cs8connection.getautodrytimer())
+
+    def read_GripperCoolingTimer(self, attr): # In seconds
+        attr.set_value(self.cs8connection.getgrippercoolingtimer())
+
+    def read_DewarDryTimer(self, attr): # In minutes
+        attr.set_value(self.cs8connection.getdewardrytimer())
+
+    def read_ColdpuckBarcodes(self, attr):
+        try:
+            vals = self.puckdata_dict["cold"]["barcode"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
+    def read_ColdpuckGroups(self, attr):
+        try:
+            vals = self.puckdata_dict["cold"]["group"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
+    def read_HotpuckBarcodes(self, attr):
+        try:
+            vals = self.puckdata_dict["hot"]["barcode"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
+    def read_HotpuckGroups(self, attr):
+        try:
+            vals = self.puckdata_dict["hot"]["group"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
+    def read_PlateBarcodes(self, attr):
+        try:
+            vals = self.platedata_dict["plate"]["barcode"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
+    def read_PlateGroups(self, attr):
+        try:
+            vals = self.platedata_dict["plate"]["group"]
+        except KeyError:
+            pass
+        else:
+            attr.set_value(vals)
+
     def opentoolb(self): return self.cs8connection.opentool2()
     def closetoolb(self): return self.cs8connection.closetool2()
 
@@ -1946,6 +2322,8 @@ class ISARA2(CATS):
 
     def setautodrytimer(self, timer): return self.cs8connection.setautodrytimer(timer)
 
+    def mon_sampledata(self): return self.cs8connection.sampledata()
+
     # Trajectory commands
     def home(self, tool):
         return self.cs8connection.home(tool)
@@ -1953,100 +2331,130 @@ class ISARA2(CATS):
     def recover(self, tool):
         return self.cs8connection.recover(tool)
 
-    def back(self, tool):
+    def back(self, argin):
+        tool, toolcal = argin
         return self.cs8connection.back(tool)
 
-    def soak(self, tool):
+    def soak(self, argin):
+        tool, toolcal = argin
         return self.cs8connection.soak(tool)
 
     def dry(self, tool):
         return self.cs8connection.dry(tool)
 
-    def changetool(self, tool): raise NotImplementedError
+    def changetool(self, tool):
+        return self.cs8connection.trajectory('changetool', tool)
 
     def toolcalibration(self, tool):
         return self.cs8connection.toolcalibration(tool)
 
     def barcode(self, argin):
         tool, puck, sample, type, toolcal = argin
-        raise NotImplementedError
-        #return self.cs8connection.barcode(tool, puck, sample. type)
+        return self.cs8connection.barcode(tool, puck, sample, type, 0)
 
     def put(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        if self.is_sample_on_diff():
+            raise Exception("Put operation not authorized while a sample is detected on magnet")
+        return self.cs8connection.put(tool, puck, sample, type, 0, x_shift, y_shift, z_shift)
 
     def put_bcrd(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        if self.is_sample_on_diff():
+            raise Exception("Put operation not authorized while a sample is detected on magnet")
+        return self.cs8connection.put_bcrd(tool, puck, sample, type, 0, x_shift, y_shift, z_shift)
 
     def get(self, argin):
         tool, toolcal, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        return self.cs8connection.get(tool, 0, x_shift, y_shift, z_shift)
 
     def get_bcrd(self, argin):
-        tool, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        tool, toolcal, x_shift, y_shift, z_shift = argin
+        return self.cs8connection.trajectory('get', tool, on_the_fly_dm_scan=1, x_shift=x_shift, y_shift=y_shift, z_shift=z_shift)
 
     def getput(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        return self.cs8connection.getput(tool,puck,sample,type,0,x_shift,y_shift,z_shift)
+        return self.cs8connection.getput(tool, puck, sample, type, 0, x_shift, y_shift, z_shift)
 
     def getput_bcrd(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        return self.cs8connection.getput_bcrd(tool, puck, sample, type, 0, x_shift, y_shift, z_shift)
 
     def pick(self, argin):
-        tool, puck, sample, type, toolcal = argin
-        raise NotImplementedError
+        tool, puck, sample, type = argin
+        return self.cs8connection.pick(tool, puck, sample, type)
 
     def pick_bcrd(self, argin):
-        tool, puck, sample, type, toolcal = argin
-        raise NotImplementedError
+        tool, puck, sample, type = argin
+        return self.cs8connection.trajectory('pick', tool, puck, sample, type=type, on_the_fly_dm_scan=1)
 
     def gotodif(self, argin):
-        tool, puck_lid, sample, type, toolcal = argin
-        raise NotImplementedError
+        tool, puck, sample, type, toolcal = argin
+        return self.cs8connection.gotodif(tool, puck, sample, type, 0)
+
 
     def get_HT(self, argin):
-        tool, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        tool, toolcal, x_shift, y_shift, z_shift = argin
+        return self.cs8connection.get_HT(tool, 0, x_shift, y_shift, z_shift)
 
     def put_HT(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        raise NotImplementedError
+        if self.is_sample_on_diff():
+            raise Exception("Put operation not authorized while a sample is detected on magnet")
+        return self.cs8connection.put_HT(tool, sample, type, 0, x_shift, y_shift, z_shift, puck_lid=puck)
 
     def getput_HT(self, argin):
         tool, puck, sample, type, toolcal, x_shift, y_shift, z_shift = argin
-        return self.cs8connection.getput_HT(tool, sample, type, toolcal, x_shift, y_shift, z_shift, puck_lid=puck)
+        return self.cs8connection.getput_HT(tool, sample, type, 0, x_shift, y_shift, z_shift, puck_lid=puck)
 
     def back_HT(self, tool):
-        raise NotImplementedError
+        return self.cs8connection.trajectory('backht', tool)
 
     def putplate(self, argin):
-        tool, plate = argin
-        raise NotImplementedError
+        tool, plate, well, type, toolcal = argin
+        return self.cs8connection.putplate(tool, plate)
 
-    def getplate(self, tool):
-        raise NotImplementedError
+    def getplate(self, argin):
+        tool, drop, toolcal = argin
+        return self.cs8connection.getplate(tool)
 
     def platetodif(self, argin):
         tool, plate = argin
-        raise NotImplementedError
+        return self.cs8connection.trajectory('platetodif', tool, plate)
 
+    def setondiff(self, argin):
+        puck, sample, type = argin
+        return self.cs8connection.setondiff(puck, sample, type)
+
+    def settool(self, argin):
+        puck_lid, sample, type = argin
+        return self.cs8connection.settool(puck_lid, sample, type)
+
+    def settool2(self, argin):
+        puck_lid, sample, type = argin
+        return self.cs8connection.settool2(puck_lid, sample, type)
+
+    def clear_memory(self):
+        return self.cs8connection.clear_memory()
+
+    def clearbcrd(self):
+        return self.cs8connection.clearbcrd()
 
 
 class ISARA2Class(CATSClass):
     device_property_list = {
         'host': [DevString,
                  "Hostname of the ISARA2 system.",
-                 []],
+                 [],
+                 True],
         'port_operate': [DevUShort,
                          "Socket's port to operate the ISARA2 system.",
-                         [1000]],
+                         [1000],
+                         True],
         'port_monitor': [DevUShort,
                          "Socket's port to monitor the ISARA2 system.",
-                         [10000]],
+                         [10000],
+                         True],
         'puck_types': [DevString,
                        "nb_pucks x puck_type (2=unipuck,1=spine,0=ignore).",
                        ["22222222222222222222222222222"]],
@@ -2058,19 +2466,55 @@ class ISARA2Class(CATSClass):
                                  [30]],
         'reconnection_interval': [DevUShort,
                                   "Wait time in seconds between reconnection attempts",
-                                  [5]]
+                                  [5]],
+
+#        'number_of_areas': [DevUShort,
+#                            "Number of areas",
+#                            [4]],
+
+        'pri_som': [DevString,
+                    "ProcessInput sample-on-magnet",
+                    ["DO_PROCINP_4"]],
+        'pro_arm': [DevVarStringArray,
+                    "ProcessOutput robot idle,home",
+                    [["DO_PROCOUT_2", "DO_PROCOUT_3"]]],
+        'pro_areas': [DevVarStringArray,
+                      "ProcessOutput area1, area2, area3, area4",
+                      [["DO_PROCOUT_4", "DO_PROCOUT_5", "DO_PROCOUT_6", "DO_PROCOUT_7"]]],
+        'pro_mon': [DevString,
+                    "ProcessOutput magnet-on",
+                    ["DO_PROCINP_11"]],
+        'pro_movcryoj': [DevString,
+                        "ProcessOutput move-cryojet-back",
+                        [""]],
+
+#        'pri_mon': [DevUShort,
+#                    "ProcessInput #: magnet-on",
+#                    [11]],
+#        'pro_idl': [DevUShort,
+#                    "ProcessOutput #: idle",
+#                    [2]],
+#        'pro_rah': [DevUShort,
+#                    "ProcessOutput #: robot-at-home",
+#                    [3]],
+#        'pro_ri1': [[DevUShort],
+#                    "ProcessOutput #: area 1",
+#                    ],
     }
 
     attr_list = {
         'CatsModel': [[DevString, SCALAR, READ]],
         'NbCassettes': [[DevShort, SCALAR, READ]],
-        'CassetteType': [[ArgType.DevShort, SPECTRUM, READ, 32]],
+        'CassetteType': [[DevShort, SPECTRUM, READ, 32]],
+        #'CassettePresence': [[DevShort, SPECTRUM, READ, 32]],
+        'CassettePresence': [[DevBoolean, SPECTRUM, READ, 32]],
 
         # STATE PARAMS pycats.state_params_isara2
         'Powered': [[DevBoolean, SCALAR, READ]],
         'RemoteMode': [[DevBoolean, SCALAR, READ]],
         'FaultStatus': [[DevBoolean, SCALAR, READ]],
         'Tool': [[DevString, SCALAR, READ]],
+        'ToolNumber': [[DevShort, SCALAR, READ]],
         'Position': [[DevString, SCALAR, READ]],
         'Path': [[DevString, SCALAR, READ]],
         'GripperJawAOpened': [[DevBoolean, SCALAR, READ]],
@@ -2121,7 +2565,7 @@ class ISARA2Class(CATSClass):
         'DewarLowTemperature': [[DevFloat, SCALAR, READ]],
         'PhaseSepLevelTemperature': [[DevFloat, SCALAR, READ]],
         'PhaseSepAlarmTemperature': [[DevFloat, SCALAR, READ]],
-        'LastTeachResult': [[DevShort, SCALAR, READ]],
+        'LastTeachResult': [[DevString, SCALAR, READ]],
 
         # DI PARAMS pycats.di_params_isara2
         'di_Standby': [[DevBoolean, SCALAR, READ]],
@@ -2188,14 +2632,27 @@ class ISARA2Class(CATSClass):
         'do_ClearSeqParamReq': [[DevBoolean, SCALAR, READ]],
         'do_RobotMsgReq': [[DevBoolean, SCALAR, READ]],
         'do_ResetProgMemReq': [[DevBoolean, SCALAR, READ]],
-        'do_PRI4_SOM': [[DevBoolean, SCALAR, READ]],
-        'do_PRI11_MON': [[DevBoolean, SCALAR, READ]],
-        'do_PRO2_IDL': [[DevBoolean, SCALAR, READ]],
-        'do_PRO3_RAH': [[DevBoolean, SCALAR, READ]],
-        'do_PRO4_RI1': [[DevBoolean, SCALAR, READ]],
-        'do_PRO5_RI2': [[DevBoolean, SCALAR, READ]],
-        'do_PRO6_RI3': [[DevBoolean, SCALAR, READ]],
-        'do_PRO7_RI4': [[DevBoolean, SCALAR, READ]],
+
+        #'do_PRI4_SOM': [[DevBoolean, SCALAR, READ]],
+        #'do_PRI11_MON': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO2_IDL': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO3_RAH': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO4_RI1': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO5_RI2': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO6_RI3': [[DevBoolean, SCALAR, READ]],
+        #'do_PRO7_RI4': [[DevBoolean, SCALAR, READ]],
+        'do_SampleOnMagnet': [[DevBoolean, SCALAR, READ]],
+        'do_MagnetOn': [[DevBoolean, SCALAR, READ]],
+        'do_MoveCryoBack': [[DevBoolean, SCALAR, READ]],
+        'do_Idle': [[DevBoolean, SCALAR, READ]],
+        'do_AtHome': [[DevBoolean, SCALAR, READ]],
+        'do_AtSoak': [[DevBoolean, SCALAR, READ]],
+        'do_InArea0': [[DevBoolean, SCALAR, READ]],
+        'do_InArea1': [[DevBoolean, SCALAR, READ]],
+        'do_InArea2': [[DevBoolean, SCALAR, READ]],
+        'do_InArea3': [[DevBoolean, SCALAR, READ]],
+        'do_InArea4': [[DevBoolean, SCALAR, READ]],
+
         'do_Puck1Presence': [[DevBoolean, SCALAR, READ]],
         'do_Puck2Presence': [[DevBoolean, SCALAR, READ]],
         'do_Puck3Presence': [[DevBoolean, SCALAR, READ]],
@@ -2231,10 +2688,27 @@ class ISARA2Class(CATSClass):
         'do_CloseClassicGripperReq': [[DevBoolean, SCALAR, READ]],
         'do_CloseClassGripObjDelReq': [[DevBoolean, SCALAR, READ]],
 
+        # Readback of setpoints
+        'MaxSoakTime': [[DevShort, SCALAR, READ]],
+        'MaxSoakNb': [[DevShort, SCALAR, READ]],
+        'AutoCloseLidTimer': [[DevShort, SCALAR, READ]],
+        'AutoDryTimer': [[DevShort, SCALAR, READ]],
+        'GripperCoolingTimer': [[DevShort, SCALAR, READ]],
+        'DewarDryTimer': [[DevShort, SCALAR, READ]],
+
+        # Sample data
+        'ColdpuckBarcodes': [[DevString, SPECTRUM, READ, 29]],
+        'ColdpuckGroups':   [[DevString, SPECTRUM, READ, 29]],
+        'HotpuckBarcodes': [[DevString, SPECTRUM, READ, 6]],
+        'HotpuckGroups':   [[DevString, SPECTRUM, READ, 6]],
+
+        # Plate data
+        'PlateBarcodes': [[DevString, SPECTRUM, READ, 11]],
+        'PlateGroups':   [[DevString, SPECTRUM, READ, 11]],
+
         # Convenience values
         'SampleOnDiff': [[DevBoolean, SCALAR, READ]],
         'Version': [[DevString, SCALAR, READ]],
-        'CassettePresence': [[ArgType.DevShort, SPECTRUM, READ, 32]],
         'LastCommandSent': [[DevString, SCALAR, READ]],
         'RecoveryNeeded': [[DevBoolean, SCALAR, READ]],
     }
@@ -2299,12 +2773,13 @@ class ISARA2Class(CATSClass):
         'mon_do': [[DevVoid], [DevString], ],
         'mon_position': [[DevVoid], [DevString], ],
         'mon_message': [[DevVoid], [DevString], ],
+        'mon_sampledata': [[DevVoid], [DevString], ],
 
         # Trajectory commands 0=tool changer 1=cryotong 2=single magnetic 3=double magnetic 4=minispine 5=rotating 6=plate 7=spare 8=laser teaching
         'home': [[DevUShort, 'tool'], [DevString], ],
         'recover': [[DevUShort, 'tool'], [DevString], ],
-        'back': [[DevUShort, 'tool'], [DevString], ],
-        'soak': [[DevUShort, 'tool'], [DevString], ],
+        'back': [[DevVarStringArray, 'StringArray:\n0:tool\n1:toolcal'], [DevString], ],
+        'soak': [[DevVarStringArray, 'StringArray:\n0:tool\n1:toolcal'], [DevString], ],
         'dry': [[DevShort, 'tool'], [DevString], ],
 
         # Tool trajectory commands
@@ -2315,28 +2790,29 @@ class ISARA2Class(CATSClass):
         'barcode': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
         'put': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'put_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'get': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
-        'get_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
+        'get': [[DevVarStringArray, 'StringArray:\n0:tool\n1:toolcal\n2:x_gonio shift (um)\n3:y_gonio shift (um)\n4:z_gonio shift (um)'], [DevString], ],
+        'get_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:toolcal\n2:x_gonio shift (um)\n3:y_gonio shift (um)\n4:z_gonio shift (um)'], [DevString], ],
         'getput': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'getput_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
-        'pick': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
-        'pick_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
+        'pick': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton'], [DevString], ],
+        'pick_bcrd': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton'], [DevString], ],
         'gotodif': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal'], [DevString], ],
 
         # Hot-puck trajectory commands
-        'get_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:x_gonio shift (um)\n2:y_gonio shift (um)\n3:z_gonio shift (um)'], [DevString], ],
+        'get_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:toolcal\n2:x_gonio shift (um)\n3:y_gonio shift (um)\n4:z_gonio shift (um)'], [DevString], ],
         'put_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'getput_HT': [[DevVarStringArray, 'StringArray:\n0:tool\n1:puck number\n2:sample number\n3:type = 0:Other 1:Hampton\n4:toolcal\n5:x_gonio shift (um)\n6:y_gonio shift (um)\n7:z_gonio shift (um)'], [DevString], ],
         'back_HT': [[DevUShort, 'tool'], [DevString], ],
 
         # Plate trajectory commands
-        'putplate': [[DevVarStringArray, 'StringArray:\n0:tool\n1:plate number'], [DevString], ],
-        'getplate': [[DevUShort, 'tool'], [DevString], ],
+        'putplate': [[DevVarStringArray, 'StringArray:\n0:tool\n1:plate number\n2:well\n3:type\n4:toolcal'], [DevString], ],
+        'getplate': [[DevVarStringArray, 'StringArray:\n0:tool\n1:drop\n2:toolcal'], [DevString], ],
         'platetodif': [[DevVarStringArray, 'StringArray:\n0:tool\n1:plate number'], [DevString], ],
 
         # Sample commands
         'setondiff': [[DevVarStringArray, 'StringArray:\n0:puck number\n1:sample number\n2:type = 0:Other 1:Hampton'], [DevString], ],
         'settool': [[DevVarStringArray, 'StringArray:\n0:puck number\n1:sample number\n2:type = 0:Other 1:Hampton'], [DevString], ],
+        'settool2': [[DevVarStringArray, 'StringArray:\n0:puck number\n1:sample number\n2:type = 0:Other 1:Hampton'], [DevString], ],
 
         # Cleanup commands
         'clearbcrd': [[DevVoid], [DevString], ],

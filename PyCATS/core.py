@@ -566,26 +566,26 @@ do_params_isara2 = [
     'DO_PROCINP_1',
     'DO_PROCINP_2',
     'DO_PROCINP_3',
-    'DO_PRI4_SOM',
+    'DO_PROCINP_4', #'DO_PRI4_SOM',
     'DO_PROCINP_5',
     'DO_PROCINP_6',
     'DO_PROCINP_7',
     'DO_PROCINP_8',
     'DO_PROCINP_9',
     'DO_PROCINP_10',
-    'DO_PRI11_MON',
+    'DO_PROCINP_11', #'DO_PRI11_MON'
     'DO_PROCINP_12',
     'DO_PROCINP_13',
     'DO_PROCINP_14',
     'DO_PROCINP_15',
     'DO_PROCINP_16',
     'DO_PROCOUT_1',
-    'DO_PRO2_IDL',
-    'DO_PRO3_RAH',
-    'DO_PRO4_RI1',
-    'DO_PRO5_RI2',
-    'DO_PRO6_RI3',
-    'DO_PRO7_RI4',
+    'DO_PROCOUT_2', #'DO_PRO2_IDL',
+    'DO_PROCOUT_3', #'DO_PRO3_RAH'
+    'DO_PROCOUT_4', #'DO_PRO4_RI1'
+    'DO_PROCOUT_5', #'DO_PRO5_RI2'
+    'DO_PROCOUT_6', #'DO_PRO6_RI3'
+    'DO_PROCOUT_7', #'DO_PRO7_RI4'
     'DO_PROCOUT_8',
     'DO_PROCOUT_9',
     'DO_PROCOUT_10',
@@ -664,21 +664,12 @@ position_params = [
 ]
 
 
-
-TOOL_FLANGE = 0
-TOOL_CRYOTONG = 1
-TOOL_EMBL_ESRF = 2
-TOOL_PLATES = 3
-TOOL_PUCK = 4
-
-
 class CS8Connection:
     def __init__(self, host=None, operate_port=None, monitor_port=None):
         self._init_logging()
         self.sock_op = None
         self.lock_op = Lock()
         self.sock_mon = None
-        self.lock_mon = Lock()
 
         self.host = None
         self.operate_port = None
@@ -693,22 +684,32 @@ class CS8Connection:
 
         self.is_running = False
         self.is_safe = False
-        self.ri1_count = 0
-        self.ri2_count = 0
-        self.ri3_count = 0
-        self.ri4_count = 0
-        self.is_inr1 = False
-        self.is_inr2 = False
-        self.is_inr3 = False
-        self.is_inr4 = False
+        self.ri_count = [0]*5 # area/region-of-interest 0, area 1, area 2, area 3, area 4
+        self.is_inri = [False]*5 # area/region-of-interest 0, area 1, area 2, area 3, area 4
         self.executing_recovery = False
 
         # grp1 contains paths with one single passage through diffr areas
-        self.check_paths_grp1 = [ 'get', 'put', 'put_bcrd', 'get_HT', 'put_HT', 'getht', 'putht' ]
+        self.check_paths_grp1 = [
+            'get',
+            'put',
+            'put_bcrd',
+            'get_HT',
+            'put_HT',
+            'getht',
+            'putht',
+            'getput',
+            'getput_bcrd',
+            'getput_HT',
+            'getputht'
+        ]
 
         # grp2 contains paths with two passages through diffr areas
         # note: for unipuck double gripper still it is only one pass for all
-        self.check_paths_grp2 = [ 'getput', 'getput_bcrd', 'getput_HT', 'getputht' ]
+        self.check_paths_grp2 = [
+            'getplate',
+            'putplate',
+            'getputplate',
+        ]
 
         # get contains paths including a get operation (to detect recovery needed)
         self.check_paths_get = [
@@ -733,6 +734,7 @@ class CS8Connection:
             self.connect(host, operate_port, monitor_port)
 
         # variables for recovery routines
+        self.number_of_areas = 2
         self.sample_before_path = -1
         self.lid_before_path = -1
         self.puck_before_path = -1
@@ -740,7 +742,29 @@ class CS8Connection:
 
         self._last_command_sent = ""
 
-        self.info("Init CATS connection object")
+        # Defaults of XAIRA
+        self._isara2_do_keys = {
+            'do_SampleOnMagnet': 'DO_PROCINP_4',
+            'do_MagnetOn'      : 'DO_PROCINP_11',
+            'do_Idle'          : 'DO_PROCOUT_2',
+            'do_AtHome'        : 'DO_PROCOUT_3',
+            'do_InArea0'       : 'DO_PROCOUT_4',
+            'do_InArea1'       : 'DO_PROCOUT_5',
+            'do_InArea2'       : 'DO_PROCOUT_6',
+            'do_InArea3'       : 'DO_PROCOUT_7',
+        }
+        # Values for XALOC
+        #self._isara2_do_keys = {
+        #    'do_SampleOnMagnet': 'DO_PROCINP_1',
+        #    'do_MagnetOn'      : 'DO_PROCOUT_1',
+        #    'do_Idle'          : 'DO_PROCOUT_6',
+        #    'do_AtHome'        : 'DO_PROCOUT_7',
+        #    'do_InArea1'       : 'DO_PROCOUT_2',
+        #    'do_InArea2'       : 'DO_PROCOUT_3',
+        #    'do_InArea0'       : 'DO_PROCOUT_4',
+        #}
+
+        self.info("Init PyCATS connection object")
 
     def __del__(self):
         self.disconnect()
@@ -753,16 +777,24 @@ class CS8Connection:
         self.error = logger.error
         self.debug("Creating new logger %s" % __name__)
 
-    def set_model(self, model):
+    def set_model(self, model, number_of_areas=None):
+        self.info("Model set to: %s" % model)
         if model in ["Isara", "isara", "i"]:
             self.model = MODEL_ISARA
         elif model in ["Isara2", "isara2", "i2"]:
             self.model = MODEL_ISARA2
+        if isinstance(number_of_areas, int):
+            self.info("Number of areas set to: %d" % number_of_areas)
+            self.number_of_areas = number_of_areas
 
     def get_model(self):
         if self.model in MODELS:
             return MODELS[self.model]
         return "Unknown"
+
+    def set_isara2_keys(self, isara2_do_keys):
+        self.debug("Setting ISARA2 DO keys to {} for {} areas".format(isara2_do_keys, self.number_of_areas))
+        self._isara2_do_keys = isara2_do_keys
 
     def set_puck_types(self, puck_types):
         self.nb_pucks = len(puck_types)
@@ -777,7 +809,7 @@ class CS8Connection:
             elif puck_typ == '0':
                 self.puck_types[i] = PUCK_IGNORE
             else:
-                print("Unknown puck type %s. Puck is ignored " % puck_typ)
+                self.warn("Unknown puck type %s. Puck is ignored " % puck_typ)
                 self.puck_types[i] = PUCK_IGNORE
 
         if self.model == MODEL_ISARA2:
@@ -835,6 +867,7 @@ class CS8Connection:
             self.host, self.monitor_port))
 
     def disconnect(self):
+        self.debug("Disconnecting...")
         if self.sock_op is not None:
             self.sock_op.close()
             self.sock_op = None
@@ -870,7 +903,7 @@ class CS8Connection:
             self.debug("Next reconnection attempt in {} seconds.".format(every))
             time.sleep(every)
 
-    def _query(self, sock, cmd):
+    def _query(self, sock, cmd, is_retry=None):
         """
         The general method to query commands to the IRELEC server.
         The sock parameter could be any of the 2 sockets: monitor or operation.
@@ -883,7 +916,6 @@ class CS8Connection:
         _cmd = cmd + '\r'
 
         if self.connected:
-
             try:
                 sock.send(_cmd.encode())
             except Exception as e:
@@ -894,7 +926,7 @@ class CS8Connection:
                 raise
 
             try:
-                received = sock.recv(1024)
+                received = sock.recv(2048)
             except Exception as e:
                 template = "Exception [{}] when accessing buffer: {}"
                 self.error(template.format(type(e).__name__, e))
@@ -929,15 +961,28 @@ class CS8Connection:
             # shutting down the connection. The choice is entirely
             # yours, (but some ways are righter than others).
 
+            # Try to handle communication errors (only for monitoring commands)
+            if cmd in ("state", "do", "di", "di2", "position", "message", "sampledata") and received.find(0)!=-1 and not is_retry:
+                received = received.decode('utf-8')
+                received = received.replace('\r', '')
+                msg = 'Communication error, a byte of 0 was found within the reply of:\nCmd: %s\nAns: %s' % (cmd, received)
+                self.error(msg)
+                self.disconnect()
+                time.sleep(0.05)
+                self.connect(self.host, self.operate_port, self.monitor_port)
+                return self._query(sock, cmd, is_retry=True)
+
             # CHECK THAT THE ANSWER IS FROM THE COMMAND SENT
             received = received.decode('utf-8')
             received = received.replace('\r', '')
-            cmd_name = (cmd.find('(') > 0 and cmd[:cmd.find('(')]) or cmd
+            if cmd.find('(') > 0:
+                cmd_name = cmd[cmd.find('(')+1:cmd.find(',')]
+            else:
+                cmd_name = cmd
             if not received.startswith(cmd_name) and cmd != 'message':
-                msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (
-                    cmd, received)
+                msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (cmd, received)
                 self.error(msg)
-            #    raise Exception(msg)
+                #raise Exception(msg)
             else:
                 pass
             return received
@@ -945,7 +990,6 @@ class CS8Connection:
     # OPERATE HELPER FUNCTIONS
     def operate(self, cmd):
         with self.lock_op:
-            #      return self._query(self.sock_op, cmd)
             received = self._query(self.sock_op, cmd)
             self.debug("%s --> %s" % (cmd, received))
             self._last_command_sent = cmd
@@ -1019,14 +1063,13 @@ class CS8Connection:
         if self.model == MODEL_ISARA2:
             # Some checks
             tool = int(tool)
-            if cmd in ('setdiffr', 'setdiffr2', 'settool', 'settool2'):
+            if cmd in ('setdiffr', 'settool', 'settool2'):
                 args = [tool, puck_lid, sample]
-                if cmd == 'settool2':
+                if cmd == 'settool':
+                    args.append(0)
+                elif cmd == 'settool2':
                     cmd == 'settool'
-                    args.append(newpuck_lid)
-                if cmd == 'setdiffr2':
-                    cmd == 'setdiffr'
-                    args.append(newpuck_lid)
+                    args.append(1)
                 args_str = ','.join(map(str, args))
                 cmd_and_args = cmd + '(' + args_str + ')'
                 self.debug("sending operation: %s" % cmd_and_args)
@@ -1057,11 +1100,11 @@ class CS8Connection:
                         0
                     ]
 
-            if len(args):
-                args_str = ','.join(map(str, args))
-                cmd_and_args = 'traj(' + cmd + ',' + args_str + ')'
-            else:
-                cmd_and_args = 'traj(' + cmd + ')'
+                if len(args):
+                    args_str = ','.join(map(str, args))
+                    cmd_and_args = 'traj(' + cmd + ',' + args_str + ')'
+                else:
+                    cmd_and_args = 'traj(' + cmd + ')'
 
         else:
             # Some checks
@@ -1305,7 +1348,7 @@ class CS8Connection:
                 toolcal)
 
     def back(self, tool, toolcal=None):
-        if self.model == MODEL_ISARA:
+        if self.model in (MODEL_ISARA, MODEL_ISARA2):
             toolcal=0
         return self.trajectory('back', tool, toolcal=toolcal)
 
@@ -1371,7 +1414,7 @@ class CS8Connection:
     def getputpick(self, tool, puck_lid, sample, type, x_shift, y_shift, z_shift):
         if self.model in (MODEL_ISARA, MODEL_ISARA2):
             raise Exception(
-                'getpuckpick command not available for ISARA/ISARA2 sample changer')
+                'getputpick command not available for ISARA/ISARA2 sample changer')
         return self.trajectory(
             'getputpick',
             tool,
@@ -1418,15 +1461,9 @@ class CS8Connection:
             toolcal)
 
     def setondiff(self, puck_lid, sample, type):
-        print((
-            "Setting info for sample on diff to %s:%s - type = %s" %
-            (puck_lid, sample, type)))
+        self.info("Setting info for sample on diff to %s:%s - type = %s" % (puck_lid, sample, type))
         ret = self.trajectory('setdiffr', puck_lid, sample, type)
-        print(("   - returns:  %s" % ret))
-        return ret
-
-    def setondiff2(self, puck_lid, sample, type):
-        ret = self.trajectory('setdiffr2', puck_lid, sample, type, 1)
+        self.debug("   - returns:  %s" % ret)
         return ret
 
     def cap_on_lid(self, tool):
@@ -1665,13 +1702,52 @@ class CS8Connection:
 
     def sethighln2(self, high_threshold): return self.operate('sethighln2(%)' % int(high_threshold))
 
+    # Note: this is the #23 value of the state command
+    def gethighln2(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('gethighln2'))
+        raise NotImplementedError
+
+    # Note: this is the #24 value of the state command
     def setlowln2(self, low_threshold): return self.operate('setlowln2(%)' % int(low_threshold))
+
+    def getlowln2(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getlowln2'))
+        raise NotImplementedError
+
+    def setpslvlthreshold(self, ps_level_threshold):
+        if self.model == MODEL_ISARA2:
+            return self.operate('setpslvlthreshold(%)' % int(ps_level_threshold))
+        raise NotImplementedError
+
+    # Note: this is the #49 value of the state command
+    def getpslvlthreshold(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getpslvlthreshold'))
+        raise NotImplementedError
+
+    def setpsalarmthreshold(self, ps_alarm_threshold):
+        if self.model == MODEL_ISARA2:
+            return self.operate('setpsalarmthreshold(%)' % int(ps_alarm_threshold))
+        raise NotImplementedError
+
+    # Note: this is the #50 value of the state command
+    def getpsalarmthreshold(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getpsalarmthreshold'))
+        raise NotImplementedError
 
     def dc_sethighln2(self, high_threshold): return self.operate('dc_sethighln2(%)' % int(high_threshold))
 
     def dc_setlowln2(self, low_threshold): return self.operate('dc_setlowln2(%)' % int(low_threshold))
 
     def setdewardrytimer(self, timer): return self.operate('setdewardrytimer(%)' % int(timer))
+
+    def getdewardrytimer(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getdewardrytimer'))
+        raise NotImplementedError
 
     def setdewarfillingtimer(self, timer): return self.operate('setdewarfillingtimer(%)' % int(timer))
 
@@ -1745,9 +1821,20 @@ class CS8Connection:
             return self.operate('setspeed(%.2f)' % speed_setpoint)
         raise NotImplementedError
 
+    # Note: this is the #19 value of the state command
+    def getspeed(self):
+        if self.model == MODEL_ISARA2:
+            return float(self.operate('getspeed'))
+        raise NotImplementedError
+
     def setautocloselidtimer(self, time_to_close_lid):
         if self.model == MODEL_ISARA2:
             return self.operate('setautocloselidtimer(%)' % int(time_to_close_lid))
+        raise NotImplementedError
+
+    def getautocloselidtimer(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getautocloselidtimer'))
         raise NotImplementedError
 
     def setmaxsoaktime(self, time_to_schedule_soaking):
@@ -1755,19 +1842,39 @@ class CS8Connection:
             return self.operate('setmaxsoaktime(%)' % int(time_to_schedule_soaking))
         raise NotImplementedError
 
+    def getmaxsoaktime(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getmaxsoaktime'))
+        raise NotImplementedError
+
     def setmaxsoaknb(self, soak_cycle_nb):
         if self.model == MODEL_ISARA2:
             return self.operate('setmaxsoaknb(%)' % int(soak_cycle_nb))
         raise NotImplementedError
-
-    def setgrippercoolingtimer(self, soaking_time):
+        
+    def getmaxsoaknb(self):
         if self.model == MODEL_ISARA2:
-            return self.operate('setgrippercoolingtimer(time(%)' % int(soaking_time))
+            return int(self.operate('getmaxsoaknb'))
+        raise NotImplementedError
+
+    def setgrippercoolingtimer(self, cooling_time):
+        if self.model == MODEL_ISARA2:
+            return self.operate('setgrippercoolingtimer(%)' % int(cooling_time))
+        raise NotImplementedError
+
+    def getgrippercoolingtimer(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getgrippercoolingtimer'))
         raise NotImplementedError
 
     def setautodrytimer(self, time_to_dry_gripper):
         if self.model == MODEL_ISARA2:
-            return self.operate('setautodrytimer(time(%)' % int(time_to_dry_gripper))
+            return self.operate('setautodrytimer(%)' % int(time_to_dry_gripper))
+        raise NotImplementedError
+
+    def getautodrytimer(self):
+        if self.model == MODEL_ISARA2:
+            return int(self.operate('getautodrytimer'))
         raise NotImplementedError
 
     # These 3 methods are not in the official documentation (ALBA specific)
@@ -1791,7 +1898,7 @@ class CS8Connection:
     # MONITOR HELPER FUNCTIONS
 
     def monitor(self, cmd):
-        with self.lock_mon:
+        with self.lock_op:
             return self._query(self.sock_mon, cmd)
 
     # 3.6.5.7 Status commands
@@ -1802,6 +1909,8 @@ class CS8Connection:
     def di2(self): return self.monitor('di2')
 
     def do(self): return self.monitor('do')
+    
+    def sampledata(self): return self.monitor('sampledata')
 
     def position(self): return self.monitor('position')
 
@@ -1830,16 +1939,13 @@ class CS8Connection:
             state_ans = self.state()
             di_ans = self.di()
             do_ans = self.do()
-
-            if self.model == MODEL_ISARA:
-                di2_ans = self.di2()
-
             if self.model in (MODEL_CATS, MODEL_ISARA):
+                if self.model == MODEL_ISARA:
+                    di2_ans = self.di2()
                 position_ans = self.position()
                 message_ans = self.message()
         except Exception as e:
             self.error("Exception when reading status from server: %s" % str(e))
-
             raise e
 
         status_dict = {}
@@ -1903,13 +2009,12 @@ class CS8Connection:
                          'PUCK_TYPE_LID3',
                          'DIFF_PLATE_NUMBER',
                          'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL',
-                         'LAST_TEACH_RES',
-                         'CLOSE_LID_REQ',
                          'SOAKING_PHASES_NUM',
                          'ALARMS_WORD',
                          'PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER',
                          'TOOL_PLATE_NUMBER',
                          'PUCK_NUM_SAMPLE_MOUNTED_ON_TOOL2'):
+                #         'CLOSE_LID_REQ',
                 if v == '':
                     v = -1
                 else:
@@ -2029,14 +2134,19 @@ class CS8Connection:
                 self.puck_before_path = status_dict["PUCK_NUM_SAMPLE_MOUNTED_ON_DIFFRACTOMETER"]
                 self.latest_path = status_dict["PATH_NAME"]
 
-            self.pathinfo['idle'] = status_dict['DO_PRO2_IDL']
-            self.pathinfo['home'] = status_dict['DO_PRO3_RAH']
-            self.pathinfo['in_area1'] = status_dict['DO_PRO4_RI1']
-            self.pathinfo['in_area2'] = status_dict['DO_PRO5_RI2'] 
-            self.pathinfo['in_area3'] = status_dict['DO_PRO6_RI3']
-            self.pathinfo['in_area4'] = status_dict['DO_PRO7_RI4'] 
-            self.is_som = status_dict['DO_PRI4_SOM']
-            self.is_idle = status_dict['DO_PRO2_IDL']
+            self.pathinfo['idle'] = status_dict[self._isara2_do_keys['do_Idle']]
+            self.pathinfo['home'] = status_dict[self._isara2_do_keys['do_AtHome']]
+            for i in range(5):
+                do_key = "do_InArea{}".format(i)
+                try:
+                    in_area_key = self._isara2_do_keys[do_key]
+                except KeyError:
+                    self.pathinfo["in_area{}".format(i)] = 0
+                else:
+                    self.pathinfo["in_area{}".format(i)] = status_dict[in_area_key]
+
+            self.is_som = status_dict[self._isara2_do_keys['do_SampleOnMagnet']]
+            self.is_idle = status_dict[self._isara2_do_keys['do_Idle']]
 
             self.current_tool = status_dict['TOOL_NAME']
 
@@ -2070,6 +2180,86 @@ class CS8Connection:
 
         return status_dict
 
+    def get_sampledata_dict(self):
+        sampledata_dict = None
+
+        if self.model == MODEL_ISARA2:
+            try:
+                sampledata_ans = self.sampledata()
+                if sampledata_ans == "Command not found":
+                    self.error("Problem communicating with robot, discarding result of 'sampledata' command")
+                    sampledata_ans = None
+            except Exception as e:
+                self.error("Exception when reading sampledata from server: %s" % str(e))
+                raise e
+            else:
+                if sampledata_ans:
+                    sampledata_str = sampledata_ans[sampledata_ans.find('(') + 1:-1]
+                    sampledata_values = [v for v in sampledata_str.split(',')]
+
+                    dewar_pucks = range(20,49)
+                    plates = range(49, 60)
+                    hot_pucks = range(60, 66)
+
+                    dewar_matrices = []
+                    dewar_groups = []
+                    for dewar_puck in dewar_pucks:
+                        try:
+                            dewar_puck_values = sampledata_values[dewar_puck]
+                            v = dewar_puck_values.split('|')
+                            puck_matrix = v[0]
+                            puck_group  = v[1]
+                            dewar_matrices.append(puck_matrix)
+                            dewar_groups.append(puck_group)
+                        except:
+                            dewar_matrices.append("")
+                            dewar_groups.append("")
+
+                    hot_matrices = []
+                    hot_groups = []
+                    for hot_puck in hot_pucks:
+                        try:
+                            hot_puck_values = sampledata_values[hot_puck]
+                            v = hot_puck_values.split('|')
+                            puck_matrix = v[0]
+                            puck_group  = v[1]
+                            hot_matrices.append(puck_matrix)
+                            hot_groups.append(puck_group)
+                        except:
+                            hot_matrices.append("")
+                            hot_groups.append("")
+
+                    plate_matrices = []
+                    plate_groups = []
+                    for plate in plates:
+                        try:
+                            plate_values = sampledata_values[plate]
+                            v = plate_values.split('|')
+                            plate_matrix = v[0]
+                            plate_group  = v[1]
+                            plate_matrices.append(plate_matrix)
+                            plate_groups.append(plate_group)
+                        except:
+                            plate_matrices.append("")
+                            plate_groups.append("")
+
+                    sampledata_dict = {
+                        "cold": {
+                            "barcode": dewar_matrices,
+                            "group"  : dewar_groups,
+                        },
+                        "hot": {
+                            "barcode": hot_matrices,
+                            "group"  : hot_groups,
+                        },
+                        "plate": {
+                            "barcode": plate_matrices,
+                            "group"  : plate_groups,
+                        },
+                    }
+
+        return sampledata_dict
+
     # To do: review this method for ISARA2 model
     def check_recovery_needed(self):
         self._is_recovery_needed = False
@@ -2082,7 +2272,10 @@ class CS8Connection:
                     self.warn("RECOVER_GET_FAILED needed!")
 
         elif self.model == MODEL_ISARA2:
-            pass
+            if self.number_of_areas > 3: # XAIRA
+                pass
+            else: # XALOC
+                pass
 
         return self._is_recovery_needed
 
@@ -2117,7 +2310,7 @@ class CS8Connection:
                         self.recovery_phase = 2
                 elif self.recovery_phase == 2:
                     # restore sample info on diff
-                    if self.model == MODEL_ISARA:
+                    if self.model in (MODEL_ISARA, MODEL_ISARA2):
                         puck_lid = self.puck_before_path
                     else:
                         puck_lid = self.lid_before_path
@@ -2144,17 +2337,20 @@ class CS8Connection:
 
         elif self.model == MODEL_ISARA2:
             pass # Implement this...
+            # BEWARE NO lid_before_path IS SET BECAURE THERE IS ONLY 1 LID!!!
 
-    # To do: review this method for ISARA2 model
+    # To do: review this method for ISARA2 model in XAIRA
     def path_in_safe_area(self):
         if self.model in (MODEL_CATS, MODEL_ISARA):
             if not self.pathinfo['running']:
                 self.is_running = False
                 self.is_safe = True
-                self.ri1_count = 0
-                self.ri2_count = 0
-                self.is_inr1 = False
-                self.is_inr2 = False
+                #self.ri1_count = 0
+                #self.ri2_count = 0
+                #self.is_inr1 = False
+                #self.is_inr2 = False
+                self.ri_count = [0]*5
+                self.is_inri = [False]*5
                 return
 
             if self.pathinfo['running'] and self.is_running is False:
@@ -2164,60 +2360,99 @@ class CS8Connection:
                     self.is_safe = True
                 else:
                     self.is_safe = False
-                    self.ri1_count = 0
-                    self.ri2_count = 0
-                    self.is_inr1 = False
-                    self.is_inr2 = False
+                    #self.ri1_count = 0
+                    #self.ri2_count = 0
+                    #self.is_inr1 = False
+                    #self.is_inr2 = False
+                    self.ri_count = [0]*5
+                    self.is_inri = [False]*5
 
             if self.pathinfo['pathname'] not in self.check_paths_all:
                 return self.is_safe
 
             # area1 became True
-            if self.pathinfo['in_area1'] and not self.is_inr1:
-                self.is_inr1 = True
+            #if self.pathinfo['in_area1'] and not self.is_inr1:
+            #    self.is_inr1 = True
+            if self.pathinfo['in_area1'] and not self.is_inri[1]:
+                self.is_inri[1] = True
 
             # area1 became False
-            if not self.pathinfo['in_area1'] and self.is_inr1:
-                self.ri1_count += 1
-                self.is_inr1 = False
+            #if not self.pathinfo['in_area1'] and self.is_inr1:
+            #    self.ri1_count += 1
+            #    self.is_inr1 = False
+            if not self.pathinfo['in_area1'] and self.is_inri[1]:
+                self.ri_count[1] += 1
+                self.is_inri[1] = False
 
             # area2 became True
-            if self.pathinfo['in_area2'] and not self.is_inr2:
-                self.is_inr2 = True
+            if self.pathinfo['in_area2'] and not self.is_inri[2]:
+                self.is_inri[2] = True
 
             # area2 became False
-            if not self.pathinfo['in_area2'] and self.is_inr2:
-                self.ri2_count += 1
-                self.is_inr2 = False
+            if not self.pathinfo['in_area2'] and self.is_inri[2]:
+                self.ri_count[2] += 1
+                self.is_inri[2] = True
 
                 if self.pathinfo['double_gripper']:
-                    if self.ri2_count > 0:
+                    if self.ri_count[2] > 0:
                         self.is_safe = True
                 elif self.pathinfo['pathname'] in self.check_paths_grp1:
-                    if self.ri2_count > 0:
+                    if self.ri_count[2] > 0:
                         self.is_safe = True
                 elif self.pathinfo['pathname'] in self.check_paths_grp2:
-                    if self.ri2_count > 1:
+                    if self.ri_count[2] > 1:
                         self.is_safe = True
 
         elif self.model == MODEL_ISARA2:
             if not self.pathinfo['running']:
                 self.is_running = False
                 self.is_safe = True
-                self.ri1_count = 0
-                self.ri2_count = 0
-                self.ri3_count = 0
-                self.ri4_count = 0
-                self.is_inr1 = False
-                self.is_inr2 = False
-                self.is_inr3 = False
-                self.is_inr4 = False
+                self.ri_count = [0]*5
+                self.is_inri = [False]*5
                 return
 
             if self.pathinfo['running'] and self.is_running is False:
                 self.is_running = True
 
-            self.is_safe = True # Implement this...
+                if self.pathinfo['pathname'] not in self.check_paths_all:
+                    self.is_safe = True
+                else:
+                    self.is_safe = False
+                    self.ri_count = [0]*5
+                    self.is_inri = [False]*5
+
+            if self.pathinfo['pathname'] not in self.check_paths_all:
+                return self.is_safe
+
+            if self.number_of_areas > 3: # XAIRA
+                pass
+                #self.is_safe = True # Implement this...
+            else: # XALOC
+                # area1 became True
+                if self.pathinfo['in_area1'] and not self.is_inri[1]:
+                    self.is_inri[1] = True
+                # area1 became False
+                if not self.pathinfo['in_area1'] and self.is_inri[1]:
+                    self.ri_count[1] += 1
+                    self.is_inri[1] = False
+
+                # area2 became True
+                if self.pathinfo['in_area2'] and not self.is_inri[2]:
+                    self.is_inri[2] = True
+                # area2 became False
+                if not self.pathinfo['in_area2'] and self.is_inri[2]:
+                    self.ri_count[2] += 1
+                    self.is_inri[2] = True
+
+                    if self.pathinfo['double_gripper']:
+                        if self.ri_count[2] > 0:
+                            self.is_safe = True
+                    elif self.pathinfo['pathname'] in self.check_paths_grp1:
+                        if self.ri_count[2] > 0:
+                            self.is_safe = True
+                    elif self.pathinfo['pathname'] in self.check_paths_grp2:
+                        if self.ri_count[2] > 1:
+                            self.is_safe = True
 
         return self.is_safe
 

@@ -1,6 +1,6 @@
 import sys
 
-from tango import DevFailed, Util
+from tango import DevFailed, Util, AutoTangoMonitor
 from .device import CATS, CATSClass, ISARA2, ISARA2Class
 
 SERVER_NAME = 'PyCATS'
@@ -12,19 +12,21 @@ def core_loop():
     global _DEVICE_REF
 
     if _DEVICE_REF is not None:
-        if isinstance(_DEVICE_REF, CATS):
-            CATS.check_reconnection(_DEVICE_REF)
-            CATS.update_status(_DEVICE_REF)
-        elif isinstance(_DEVICE_REF, ISARA2):
-            ISARA2.check_reconnection(_DEVICE_REF)
-            ISARA2.update_status(_DEVICE_REF)
+        if isinstance(_DEVICE_REF, ISARA2):
+            with AutoTangoMonitor(_DEVICE_REF):
+                ISARA2.check_reconnection(_DEVICE_REF)
+                ISARA2.update_status(_DEVICE_REF)
+        elif isinstance(_DEVICE_REF, CATS):
+            with AutoTangoMonitor(_DEVICE_REF):
+                CATS.check_reconnection(_DEVICE_REF)
+                CATS.update_status(_DEVICE_REF)
     else:
         dev_list = _UTIL.get_device_list("*")
         for dev in dev_list:
-            if isinstance(dev, CATS):
+            if isinstance(dev, ISARA2):
                 _DEVICE_REF = dev
                 break
-            elif isinstance(dev, ISARA2):
+            elif isinstance(dev, CATS):
                 _DEVICE_REF = dev
                 break
 

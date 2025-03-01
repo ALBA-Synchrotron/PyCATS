@@ -288,14 +288,24 @@ ISARA22TANGO = {
     'CLEAR_ROBOT_MSG': 'do_RobotMsgReq',
     'RESET_PROGRAM': 'do_ResetProgMemReq',
 
-    'DO_PRI4_SOM': 'do_PRI4_SOM',
-    'DO_PRI11_MON': 'do_PRI11_MON',
-    'DO_PRO2_IDL': 'do_PRO2_IDL',
-    'DO_PRO3_RAH': 'do_PRO3_RAH',
-    'DO_PRO4_RI1': 'do_PRO4_RI1',
-    'DO_PRO5_RI2': 'do_PRO5_RI2',
-    'DO_PRO6_RI3': 'do_PRO6_RI3',
-    'DO_PRO7_RI4': 'do_PRO7_RI4',
+    #'DO_PRI4_SOM': 'do_PRI4_SOM',
+    #'DO_PRI11_MON': 'do_PRI11_MON',
+    #'DO_PRO2_IDL': 'do_PRO2_IDL',
+    #'DO_PRO3_RAH': 'do_PRO3_RAH',
+    #'DO_PRO4_RI1': 'do_PRO4_RI1',
+    #'DO_PRO5_RI2': 'do_PRO5_RI2',
+    #'DO_PRO6_RI3': 'do_PRO6_RI3',
+    #'DO_PRO7_RI4': 'do_PRO7_RI4',
+    'DO_PROCINP_4' : 'do_SampleOnMagnet',
+    #'DO_PROCINP_11': 'do_MagnetOn',
+    'DO_PROCOUT_13': 'do_MagnetOn',
+    'DO_PROCOUT_2' : 'do_Idle',
+    'DO_PROCOUT_3' : 'do_AtHome',
+    'DO_PROCOUT_4' : 'do_InArea0',
+    'DO_PROCOUT_5' : 'do_InArea1',
+    'DO_PROCOUT_6' : 'do_InArea2',
+    'DO_PROCOUT_7' : 'do_InArea3',
+    'DO_PROCOUT_16': 'do_InArea4',
 
     'PUCK_1_PRESENCE': 'do_Puck1Presence',
     'PUCK_2_PRESENCE': 'do_Puck2Presence',
@@ -337,3 +347,17 @@ ISARA22TANGO = {
 TANGO2ISARA2 = {}
 for k, v in ISARA22TANGO.items():
     TANGO2ISARA2[v] = k
+
+
+
+TOOL2ISARA2NUMBER = {
+    'ToolChanger'     : 0,
+    'Cryotong'        : 1,
+    'SingleGripper'   : 2,
+    'DoubleGripper'   : 3,
+    'MiniSpineGripper': 4,
+    'RotatingGripper' : 5,
+    'PlateGripper'    : 6,
+    'Spare'           : 7,
+    'LaserTool'       : 8,
+}
