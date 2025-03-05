@@ -742,7 +742,7 @@ class CS8Connection:
 
         self._last_command_sent = ""
 
-        # Defaults of XAIRA
+        # Defaults values for XAIRA
         self._isara2_do_keys = {
             'do_SampleOnMagnet': 'DO_PROCINP_4',
             'do_MagnetOn'      : 'DO_PROCINP_11',
@@ -972,13 +972,17 @@ class CS8Connection:
                 self.connect(self.host, self.operate_port, self.monitor_port)
                 return self._query(sock, cmd, is_retry=True)
 
-            # CHECK THAT THE ANSWER IS FROM THE COMMAND SENT
+            # Confirm that the answer is from the command sent
             received = received.decode('utf-8')
             received = received.replace('\r', '')
-            if cmd.find('(') > 0:
+
+            if cmd.startswith("traj("):
                 cmd_name = cmd[cmd.find('(')+1:cmd.find(',')]
+            elif cmd.find('(') > 0:
+                cmd_name = cmd[:cmd.find('(')]
             else:
                 cmd_name = cmd
+
             if not received.startswith(cmd_name) and cmd != 'message':
                 msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (cmd, received)
                 self.error(msg)
@@ -987,7 +991,7 @@ class CS8Connection:
                 pass
             return received
 
-    # OPERATE HELPER FUNCTIONS
+    # Operate helper functions
     def operate(self, cmd):
         with self.lock_op:
             received = self._query(self.sock_op, cmd)
@@ -1064,7 +1068,7 @@ class CS8Connection:
             # Some checks
             tool = int(tool)
             if cmd in ('setdiffr', 'settool', 'settool2'):
-                args = [tool, puck_lid, sample]
+                args = [puck_lid, sample, type]
                 if cmd == 'settool':
                     args.append(0)
                 elif cmd == 'settool2':
@@ -1261,14 +1265,14 @@ class CS8Connection:
             y_shift,
             z_shift)
 
-    def get_HT(self, tool, toolcal, x_shift, y_shift, z_shift, puck_lid=100):
+    def get_HT(self, tool, toolcal, x_shift, y_shift, z_shift):
         cmd = 'get_HT'
         if self.model == MODEL_ISARA2:
             cmd = 'getht'
         return self.trajectory(
             cmd,
             tool,
-            puck_lid,
+            0,
             0,
             0,
             0,
@@ -1462,9 +1466,7 @@ class CS8Connection:
 
     def setondiff(self, puck_lid, sample, type):
         self.info("Setting info for sample on diff to %s:%s - type = %s" % (puck_lid, sample, type))
-        ret = self.trajectory('setdiffr', puck_lid, sample, type)
-        self.debug("   - returns:  %s" % ret)
-        return ret
+        return self.trajectory('setdiffr', 0, puck_lid, sample, type=type)
 
     def cap_on_lid(self, tool):
         if self.model in (MODEL_ISARA, MODEL_ISARA2):
