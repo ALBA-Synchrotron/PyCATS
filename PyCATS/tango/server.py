@@ -49,9 +49,9 @@ def run(args=None):
         u.server_run()
 
     except DevFailed as e:
-        print('-------> Received a DevFailed exception:', e)
+        print('-------> Received a DevFailed exception: {}'.format(str(e)))
     except Exception as e:
-        print('-------> An unforeseen exception occured....', e)
+        print('-------> An unforeseen exception occured: {}'.format(str(e)))
 
 
 if __name__ == "__main__":

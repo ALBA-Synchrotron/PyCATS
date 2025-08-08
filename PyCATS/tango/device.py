@@ -3,7 +3,7 @@ import logging
 import traceback
 from tango import (Device_4Impl, DeviceClass, DevState, DevVoid, DevULong,
                    DevUShort, DevFloat, DevBoolean, DevString, DevShort,
-                   DevVarStringArray, READ, SCALAR, SPECTRUM)
+                   DevVarStringArray, READ, SCALAR, SPECTRUM, AttrQuality)
 from .utils import CATS2TANGO, TANGO2CATS, ISARA22TANGO, TANGO2ISARA2, TOOL2ISARA2NUMBER
 from ..messages import di_help, do_help, message_help
 from ..core import CS8Connection
@@ -58,7 +58,7 @@ class CATS(Device_4Impl):
 
         self.init_device()
 
-        self.logger.info('%s state dictionary updates every %s ms' % (str(klass), self.update_freq_ms))
+        self.logger.info('{} state dictionary updates every {} ms'.format(str(klass), self.update_freq_ms))
         self.logger.info('Ready to accept requests.')
 
         self.TANGO2ROBOT = TANGO2CATS
@@ -75,8 +75,8 @@ class CATS(Device_4Impl):
                     new_status_dict = self.cs8connection.get_status_dict()
                     self.process_status_dict(new_status_dict)
                 except Exception as e:
-                    self.logger.error("Error reading status: %s" % traceback.format_exc())
-                    self.notify_new_state(DevState.ALARM, 'Exception when getting status from robot server:\n%s' % str(e))
+                    self.logger.error("Error reading status: {}".format(traceback.format_exc()))
+                    self.notify_new_state(DevState.ALARM, 'Exception when getting status from robot server: {}'.format(str(e)))
                 else:
                     updated = True
         return updated
@@ -99,7 +99,7 @@ class CATS(Device_4Impl):
             # self.status_update_thread.start()
             self.notify_new_state(DevState.ON, 'Connected to the robot system.')
         except Exception as e:
-            self.notify_new_state(DevState.ALARM, 'Exception connecting to the robot system:\n' + str(e))
+            self.notify_new_state(DevState.ALARM, 'Exception connecting to the robot system: {}'.format(str(e)))
 
     def delete_device(self):
         # if self.status_update_thread is not None:
@@ -110,7 +110,7 @@ class CATS(Device_4Impl):
     def notify_new_state(self, state, status=None):
         self.set_state(state)
         if status is None:
-            status = 'Device is in %s state.' % state
+            status = 'Device is in {} state.'.format(state)
         self.set_status(status)
         state_changed = None
         try:
@@ -121,16 +121,18 @@ class CATS(Device_4Impl):
         else:
             state_changed = (old_state != state) # Disregard changes in the status string...
         if state_changed:
+            timestamp = time.time()
             self.state_dict['State'] = state
             self.state_dict['Status'] = status
             self.logger.debug("PyCATS: pushing change-event for State={} Status={}".format(state, status))
-            self.push_change_event('State', state)
-            self.push_change_event('Status', status)
+            self.push_change_event('State', state, timestamp, AttrQuality.ATTR_VALID)
+            self.push_change_event('Status', status, timestamp, AttrQuality.ATTR_VALID)
         else:
             self.state_dict['Status'] = status # Make sure status string is nevertheless up-to-date
 
     def process_status_dict(self, new_status_dict):
 
+        timestamp = time.time()
         for catsk, new_value in new_status_dict.items():
             if new_status_dict[catsk] != self.status_dict.get(catsk, None):
                 self.status_dict[catsk] = new_value
@@ -145,8 +147,8 @@ class CATS(Device_4Impl):
                     elif attr_name.endswith("pos"): # Mask positions
                         continue
                     else:
-                        self.logger.debug("PyCATS: pushing change-event for {} with value {}".format(attr_name, new_value))
-                    self.push_change_event(attr_name, new_value)
+                        self.logger.debug("PyCATS: pushing change-event for {} with value {} of type {}".format(attr_name, new_value, type(new_value)))
+                    self.push_change_event(attr_name, new_value, timestamp, AttrQuality.ATTR_VALID)
                 except KeyError:
                     pass
                     #print("NO TANGO ATTRIBUTE FOR STATUS_DICT KEY", catsk)
@@ -164,100 +166,100 @@ class CATS(Device_4Impl):
             self.logger.debug("PyCATS: pushing change-event for CassettePresence")
             self.push_change_event('CassettePresence', new_presence)
 
-        new_status = 'Powered = %s\n' % \
-                     self.status_dict[self.TANGO2ROBOT['Powered']]
-        new_status += 'Tool = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['Tool']]
-        new_status += 'Path = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['Path']]
-        new_status += 'PathRunning = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['PathRunning']]
-        new_status += 'PathSafe = %s\n' % \
-                      self.is_path_safe()
+        new_status = 'Powered = {}\n'.format(
+                     self.status_dict[self.TANGO2ROBOT['Powered']])
+        new_status += 'Tool = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['Tool']])
+        new_status += 'Path = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['Path']])
+        new_status += 'PathRunning = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['PathRunning']])
+        new_status += 'PathSafe = {}\n'.format(
+                      self.is_path_safe())
 
         robot_model = self.cs8connection.get_model()
 
         if robot_model == "CATS":
-            new_status += 'LidSampleOnTool= %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['LidSampleOnTool']]
+            new_status += 'LidSampleOnTool= {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['LidSampleOnTool']])
         elif robot_model == "ISARA":
-            new_status += 'PuckNumberOnTool = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['PuckNumberOnTool']]
+            new_status += 'PuckNumberOnTool = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PuckNumberOnTool']])
         elif robot_model == "ISARA2":
-            new_status += 'PuckNumberOnTool = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['NumPuckOnTool']]
-        new_status += 'NumSampleOnTool = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['NumSampleOnTool']]
+            new_status += 'PuckNumberOnTool = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['NumPuckOnTool']])
+        new_status += 'NumSampleOnTool = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['NumSampleOnTool']])
 
         if robot_model == "ISARA":
-            new_status += 'PuckNumberOnTool2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['PuckNumberOnTool2']]
-            new_status += 'NumSampleOnTool2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['NumSampleOnTool2']]
+            new_status += 'PuckNumberOnTool2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PuckNumberOnTool2']])
+            new_status += 'NumSampleOnTool2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['NumSampleOnTool2']])
         elif robot_model == "ISARA2":
-            new_status += 'PuckNumberOnTool2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['NumPuckOnTool2']]
-            new_status += 'NumSampleOnTool2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['NumSampleOnTool2']]
+            new_status += 'PuckNumberOnTool2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['NumPuckOnTool2']])
+            new_status += 'NumSampleOnTool2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['NumSampleOnTool2']])
             
-        new_status += 'Barcode = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['Barcode']]
+        new_status += 'Barcode = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['Barcode']])
 
         if robot_model == "CATS":
-            new_status += 'LidSampleOnDiff = %s\n' %\
-                          self.status_dict[self.TANGO2ROBOT['LidSampleOnDiff']]
+            new_status += 'LidSampleOnDiff = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['LidSampleOnDiff']])
         elif robot_model == "ISARA":
-            new_status += 'PuckNumberOnDiff = %s\n' %\
-                          self.status_dict[self.TANGO2ROBOT['PuckSampleOnDiff']]
+            new_status += 'PuckNumberOnDiff = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PuckSampleOnDiff']])
         elif robot_model == "ISARA2":
-            new_status += 'PuckNumberOnDiff = %s\n' %\
-                          self.status_dict[self.TANGO2ROBOT['NumPuckOnDiff']]
+            new_status += 'PuckNumberOnDiff = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['NumPuckOnDiff']])
 
-        new_status += 'NumSampleOnDiff = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['NumSampleOnDiff']]
-        new_status += 'NumPlateOnTool = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['NumPlateOnTool']]
-
-        if robot_model == "CATS":
-            new_status += 'Well = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['Well']]
-
-        new_status += 'LN2Regulating = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['LN2Regulating']]
+        new_status += 'NumSampleOnDiff = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['NumSampleOnDiff']])
+        new_status += 'NumPlateOnTool = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['NumPlateOnTool']])
 
         if robot_model == "CATS":
-            new_status += 'LN2Warming = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['LN2Warming']]
+            new_status += 'Well = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['Well']])
+
+        new_status += 'LN2Regulating = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['LN2Regulating']])
+
+        if robot_model == "CATS":
+            new_status += 'LN2Warming = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['LN2Warming']])
 
         if robot_model in ("CATS", "ISARA"):
-            new_status += 'AutoMode = %s\n' % \
-                        self.status_dict[self.TANGO2ROBOT['AutoMode']]
-            new_status += 'DefaultStatus = %s\n' % \
-                        self.status_dict[self.TANGO2ROBOT['DefaultStatus']]
+            new_status += 'AutoMode = {}\n'.format(
+                        self.status_dict[self.TANGO2ROBOT['AutoMode']])
+            new_status += 'DefaultStatus = {}\n'.format(
+                        self.status_dict[self.TANGO2ROBOT['DefaultStatus']])
         elif robot_model == "ISARA2":
-            new_status += 'RemoteMode = %s\n' % \
-                        self.status_dict[self.TANGO2ROBOT['RemoteMode']]
-            new_status += 'FaultStatus = %s\n' % \
-                        self.status_dict[self.TANGO2ROBOT['FaultStatus']]
+            new_status += 'RemoteMode = {}\n'.format(
+                        self.status_dict[self.TANGO2ROBOT['RemoteMode']])
+            new_status += 'FaultStatus = {}\n'.format(
+                        self.status_dict[self.TANGO2ROBOT['FaultStatus']])
 
-        new_status += 'SpeedRatio = %s\n' % \
-                      self.status_dict[self.TANGO2ROBOT['SpeedRatio']]
+        new_status += 'SpeedRatio = {}\n'.format(
+                      self.status_dict[self.TANGO2ROBOT['SpeedRatio']])
 
         if robot_model == "CATS":
-            new_status += 'PuckDetectionDewar1 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['PuckDetectionDewar1']]
-            new_status += 'PuckDetectionDewar2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['PuckDetectionDewar2']]
+            new_status += 'PuckDetectionDewar1 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PuckDetectionDewar1']])
+            new_status += 'PuckDetectionDewar2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PuckDetectionDewar2']])
         if robot_model in ("CATS", "ISARA"):
-            new_status += 'PositionNumberDewar1 = %s\n' % \
-                        self.status_dict[self.TANGO2ROBOT['PositionNumberDewar1']]
+            new_status += 'PositionNumberDewar1 = {}\n'.format(
+                        self.status_dict[self.TANGO2ROBOT['PositionNumberDewar1']])
         if robot_model == "CATS":
-            new_status += 'PositionNumberDewar2 = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['PositionNumberDewar2']]
+            new_status += 'PositionNumberDewar2 = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['PositionNumberDewar2']])
 
         if robot_model in ("ISARA", "ISARA2"):
-            new_status += 'CurrentNumberOfSoaking = %s\n' % \
-                          self.status_dict[self.TANGO2ROBOT['CurrentNumberOfSoaking']]
+            new_status += 'CurrentNumberOfSoaking = {}\n'.format(
+                          self.status_dict[self.TANGO2ROBOT['CurrentNumberOfSoaking']])
 
         if new_status_dict[self.TANGO2ROBOT['Path']] != '':
             self.notify_new_state(DevState.RUNNING, new_status)
@@ -1549,6 +1551,7 @@ class CATSClass(DeviceClass):
 
 
 class ISARA2(CATS):
+
     def __init__(self, klass, name):
         self.model = "isara2"
         CATS.__init__(self, klass, name)
@@ -1602,6 +1605,16 @@ class ISARA2(CATS):
                 self.logger.info("PyCATS(ISARA2): move-cryojet-back configured to {}".format(pro_movcryoj))
 
         try:
+            pro_collision = str(self.pro_collision)
+        except:
+            pass
+        else:
+            if len(pro_collision):
+                self.ROBOT2TANGO[pro_collision] = "do_Collision"
+                self.TANGO2ROBOT["do_Collision"] = pro_collision
+                self.logger.info("PyCATS(ISARA2): collision-sensor configured to {}".format(pro_collision))
+
+        try:
             pro_arm = list(self.pro_arm)
         except:
             pass
@@ -1643,33 +1656,33 @@ class ISARA2(CATS):
         else:
             if len(pro_areas):
                 self.number_of_areas = len(pro_areas)
-                for area_num in range(5):
+                for area_num in range(CS8Connection.MAX_NUM_AREAS):
                     try:
                         pro_area_do = str(pro_areas[area_num])
                     except:
-                        for remaining_area in range(area_num, 5):
-                            inarea_key = "do_InArea{}".format(remaining_area)
+                        for remaining_area in range(area_num, CS8Connection.MAX_NUM_AREAS):
+                            inarea_key = "do_InArea{}".format(remaining_area+1)
                             inarea_do = self.TANGO2ROBOT[inarea_key]
                             self.ROBOT2TANGO.pop(inarea_do)
                             self.TANGO2ROBOT.pop(inarea_key)
-                            self.logger.debug('PyCATS(ISARA2): popping %s %s' % (inarea_do, inarea_key))
+                            self.logger.debug('PyCATS(ISARA2): popping {} {}'.format(inarea_do, inarea_key))
                         self.number_of_areas = area_num
                         break
                     else:
                         if len(pro_area_do):
-                            self.ROBOT2TANGO[pro_area_do] = "do_InArea{}".format(area_num)
-                            self.TANGO2ROBOT["do_InArea{}".format(area_num)] = pro_area_do
+                            self.ROBOT2TANGO[pro_area_do] = "do_InArea{}".format(area_num+1)
+                            self.TANGO2ROBOT["do_InArea{}".format(area_num+1)] = pro_area_do
                             self.logger.info("PyCATS(ISARA2): area/region-of-interest {} configured to {}".format(area_num, pro_area_do))
                         else:
-                            for remaining_area in range(area_num, 5):
-                                inarea_key = "do_InArea{}".format(remaining_area)
+                            for remaining_area in range(area_num, CS8Connection.MAX_NUM_AREAS):
+                                inarea_key = "do_InArea{}".format(remaining_area+1)
                                 inarea_do = self.TANGO2ROBOT[inarea_key]
                                 self.ROBOT2TANGO.pop(inarea_do)
                                 self.TANGO2ROBOT.pop(inarea_key)
-                                self.logger.debug('PyCATS(ISARA2): popping %s %s' % (inarea_do, inarea_key))
+                                self.logger.debug('PyCATS(ISARA2): popping {} {}'.format(inarea_do, inarea_key))
                             self.number_of_areas = area_num
                             break
-                self.logger.info('PyCATS(ISARA2): number of areas is %d' % self.number_of_areas)
+                self.logger.info('PyCATS(ISARA2): number of areas is {}'.format(self.number_of_areas))
 
         isara2_do_keys = {
             'do_SampleOnMagnet': self.TANGO2ROBOT["do_SampleOnMagnet"],
@@ -1690,7 +1703,7 @@ class ISARA2(CATS):
         else:
             isara2_do_keys["do_AtSoak"] = do_atsoak
         for i in range(self.number_of_areas):
-            isara2_do_keys["do_InArea{}".format(i)] = self.TANGO2ROBOT["do_InArea{}".format(i)]
+            isara2_do_keys["do_InArea{}".format(i+1)] = self.TANGO2ROBOT["do_InArea{}".format(i+1)]
         self.cs8connection.set_isara2_keys(isara2_do_keys)
 
     def delete_device(self):
@@ -1723,9 +1736,9 @@ class ISARA2(CATS):
                     try:
                         self.process_sampledata_dict(new_sampledata_dict)
                     except Exception as e:
-                        self.logger.error("Error parsing sampledata: %s" % traceback.format_exc())
+                        self.logger.error("Error parsing sampledata: {}".format(traceback.format_exc()))
             except Exception as e:
-                self.logger.error("Error reading sampledata: %s" % traceback.format_exc())
+                self.logger.error("Error reading sampledata: {}".format(traceback.format_exc()))
 
     def process_sampledata_dict(self, new_sampledata_dict):
         # Update self.puckdata_dict["cold"]["matrix"] for ColdpuckBarcodes attribute
@@ -2116,13 +2129,6 @@ class ISARA2(CATS):
         else:
             attr.set_value(val)
 
-    def read_do_InArea0(self, attr):
-        try:
-            val = self.status_dict[self.TANGO2ROBOT['do_InArea0']]
-        except KeyError:
-            pass
-        else:
-            attr.set_value(val)
     def read_do_InArea1(self, attr):
         try:
             val = self.status_dict[self.TANGO2ROBOT['do_InArea1']]
@@ -2151,6 +2157,9 @@ class ISARA2(CATS):
             pass
         else:
             attr.set_value(val)
+
+    def read_do_Collision(self, attr): attr.set_value(
+        self.status_dict[self.TANGO2ROBOT['do_Collision']])
 
     def read_do_Puck1Presence(self, attr): attr.set_value(
         self.status_dict[self.TANGO2ROBOT['do_Puck1Presence']])
@@ -2487,6 +2496,9 @@ class ISARA2Class(CATSClass):
         'pro_movcryoj': [DevString,
                         "ProcessOutput move-cryojet-back",
                         [""]],
+        'pro_collision': [DevString,
+                         "ProcessOutput of collision sensor",
+                         [""]],
 
 #        'pri_mon': [DevUShort,
 #                    "ProcessInput #: magnet-on",
@@ -2647,11 +2659,12 @@ class ISARA2Class(CATSClass):
         'do_Idle': [[DevBoolean, SCALAR, READ]],
         'do_AtHome': [[DevBoolean, SCALAR, READ]],
         'do_AtSoak': [[DevBoolean, SCALAR, READ]],
-        'do_InArea0': [[DevBoolean, SCALAR, READ]],
         'do_InArea1': [[DevBoolean, SCALAR, READ]],
         'do_InArea2': [[DevBoolean, SCALAR, READ]],
         'do_InArea3': [[DevBoolean, SCALAR, READ]],
         'do_InArea4': [[DevBoolean, SCALAR, READ]],
+
+        'do_Collision': [[DevBoolean, SCALAR, READ]],
 
         'do_Puck1Presence': [[DevBoolean, SCALAR, READ]],
         'do_Puck2Presence': [[DevBoolean, SCALAR, READ]],

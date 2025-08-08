@@ -1,7 +1,7 @@
-import os
+#import os
 import logging
 
-from logging.handlers import TimedRotatingFileHandler
+#from logging.handlers import TimedRotatingFileHandler
 
 #FILENAME = '/tmp/tango-tangosys/PyCATS/bl13/log.txt'
 #FILENAME = '/tmp/tango-tangosys/PyCATS/bl06/log.txt'
@@ -18,14 +18,14 @@ def get_logger(name='root'):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(chlr)
 
-    fhlr = TimedRotatingFileHandler(filename=FILENAME,
-                                    when='midnight',
-                                    backupCount=30)
-    try:
-        os.chmod(FILENAME, 0o666)
-    except:
-        pass
-    fhlr.setFormatter(formatter)
-    logger.addHandler(fhlr)
+    #fhlr = TimedRotatingFileHandler(filename=FILENAME,
+    #                                when='midnight',
+    #                                backupCount=30)
+    #try:
+    #    os.chmod(FILENAME, 0o666)
+    #except:
+    #    pass
+    #fhlr.setFormatter(formatter)
+    #logger.addHandler(fhlr)
 
     return logger

@@ -665,6 +665,9 @@ position_params = [
 
 
 class CS8Connection:
+
+    MAX_NUM_AREAS = 4
+
     def __init__(self, host=None, operate_port=None, monitor_port=None):
         self._init_logging()
         self.sock_op = None
@@ -684,8 +687,8 @@ class CS8Connection:
 
         self.is_running = False
         self.is_safe = False
-        self.ri_count = [0]*5 # area/region-of-interest 0, area 1, area 2, area 3, area 4
-        self.is_inri = [False]*5 # area/region-of-interest 0, area 1, area 2, area 3, area 4
+        self.ri_count = [0] * CS8Connection.MAX_NUM_AREAS # area/region-of-interest area 1, area 2, area 3, area 4
+        self.is_inri = [False] * CS8Connection.MAX_NUM_AREAS # area/region-of-interest area 1, area 2, area 3, area 4
         self.executing_recovery = False
 
         # grp1 contains paths with one single passage through diffr areas
@@ -748,10 +751,11 @@ class CS8Connection:
             'do_MagnetOn'      : 'DO_PROCINP_11',
             'do_Idle'          : 'DO_PROCOUT_2',
             'do_AtHome'        : 'DO_PROCOUT_3',
-            'do_InArea0'       : 'DO_PROCOUT_4',
-            'do_InArea1'       : 'DO_PROCOUT_5',
-            'do_InArea2'       : 'DO_PROCOUT_6',
-            'do_InArea3'       : 'DO_PROCOUT_7',
+            'do_InArea1'       : 'DO_PROCOUT_4',
+            'do_InArea2'       : 'DO_PROCOUT_5',
+            'do_InArea3'       : 'DO_PROCOUT_6',
+            'do_InArea4'       : 'DO_PROCOUT_7',
+            'do_Collision'     : 'DO_PROCOUT_1',
         }
         # Values for XALOC
         #self._isara2_do_keys = {
@@ -762,6 +766,9 @@ class CS8Connection:
         #    'do_InArea1'       : 'DO_PROCOUT_2',
         #    'do_InArea2'       : 'DO_PROCOUT_3',
         #    'do_InArea0'       : 'DO_PROCOUT_4',
+        #    'do_InArea1'       : 'DO_PROCOUT_4',
+        #    'do_InArea2'       : 'DO_PROCOUT_3',
+        #    'do_InArea3'       : 'DO_PROCOUT_2',
         #}
 
         self.info("Init PyCATS connection object")
@@ -775,16 +782,16 @@ class CS8Connection:
         self.info = logger.info
         self.warn = logger.warning
         self.error = logger.error
-        self.debug("Creating new logger %s" % __name__)
+        self.debug("Creating new logger {}".format(__name__))
 
     def set_model(self, model, number_of_areas=None):
-        self.info("Model set to: %s" % model)
+        self.info("Model set to: {}".format(model))
         if model in ["Isara", "isara", "i"]:
             self.model = MODEL_ISARA
         elif model in ["Isara2", "isara2", "i2"]:
             self.model = MODEL_ISARA2
         if isinstance(number_of_areas, int):
-            self.info("Number of areas set to: %d" % number_of_areas)
+            self.info("Number of areas set to: {}".format(number_of_areas))
             self.number_of_areas = number_of_areas
 
     def get_model(self):
@@ -809,7 +816,7 @@ class CS8Connection:
             elif puck_typ == '0':
                 self.puck_types[i] = PUCK_IGNORE
             else:
-                self.warn("Unknown puck type %s. Puck is ignored " % puck_typ)
+                self.warn("Unknown puck type {}. Puck is ignored ".format(puck_typ))
                 self.puck_types[i] = PUCK_IGNORE
 
         if self.model == MODEL_ISARA2:
@@ -861,10 +868,8 @@ class CS8Connection:
         # Flag connected
         self.connected = True
         self.info("Connected to CATS server")
-        self.debug("Operation socket created (host=%s , port=%s)" % (
-            self.host, self.operate_port))
-        self.debug("Monitor socket created (host=%s , port=%s)" % (
-            self.host, self.monitor_port))
+        self.debug("Operation socket created (host={} , port={})".format(self.host, self.operate_port))
+        self.debug("Monitor socket created (host={} , port={})".format(self.host, self.monitor_port))
 
     def disconnect(self):
         self.debug("Disconnecting...")
@@ -899,7 +904,7 @@ class CS8Connection:
             self.connected = True
             self._t0 = time.time()
         except Exception as e:
-            self.error("Error trying to reconnect: %s" % str(e))
+            self.error("Error trying to reconnect: {}".format(str(e)))
             self.debug("Next reconnection attempt in {} seconds.".format(every))
             time.sleep(every)
 
@@ -965,7 +970,7 @@ class CS8Connection:
             if cmd in ("state", "do", "di", "di2", "position", "message", "sampledata") and received.find(0)!=-1 and not is_retry:
                 received = received.decode('utf-8')
                 received = received.replace('\r', '')
-                msg = 'Communication error, a byte of 0 was found within the reply of:\nCmd: %s\nAns: %s' % (cmd, received)
+                msg = 'Communication error, a byte of 0 was found within the reply of:\nCmd: {}\nAns: {}'.format(cmd, received)
                 self.error(msg)
                 self.disconnect()
                 time.sleep(0.05)
@@ -984,18 +989,20 @@ class CS8Connection:
                 cmd_name = cmd
 
             if not received.startswith(cmd_name) and cmd != 'message':
-                msg = 'Answer is not the one expected:\nCmd: %s\nAns: %s' % (cmd, received)
+                msg = 'Answer is not the one expected:\nCmd: {}\nAns: {}'.format(cmd, received)
                 self.error(msg)
                 #raise Exception(msg)
             else:
-                pass
+                if cmd.startswith("get") and received.startswith("get"):
+                    received = received[received.find('(')+1:-1]
+
             return received
 
     # Operate helper functions
     def operate(self, cmd):
         with self.lock_op:
             received = self._query(self.sock_op, cmd)
-            self.debug("%s --> %s" % (cmd, received))
+            self.debug("{} --> {}".format(str(cmd), str(received)))
             self._last_command_sent = cmd
             return received
 
@@ -1014,9 +1021,9 @@ class CS8Connection:
 
     def restart(self): return self.operate('restart')
 
-    def backup(self, usbport): return self.operate('backup(%s)' % usbport)
+    def backup(self, usbport): return self.operate('backup({})'.format(str(usbport)))
 
-    def restore(self, usbport): return self.operate('restore(%s)' % usbport)
+    def restore(self, usbport): return self.operate('restore({})'.format(str(usbport)))
 
     # 3.6.5.2 Trajectories commands
     # All trajectory commands share the same argument table ?!?!?!
@@ -1067,6 +1074,8 @@ class CS8Connection:
         if self.model == MODEL_ISARA2:
             # Some checks
             tool = int(tool)
+            x_shift,y_shift,z_shift = int(x_shift),int(y_shift),int(z_shift)
+
             if cmd in ('setdiffr', 'settool', 'settool2'):
                 args = [puck_lid, sample, type]
                 if cmd == 'settool':
@@ -1076,7 +1085,7 @@ class CS8Connection:
                     args.append(1)
                 args_str = ','.join(map(str, args))
                 cmd_and_args = cmd + '(' + args_str + ')'
-                self.debug("sending operation: %s" % cmd_and_args)
+                self.debug("sending operation: {}".format(str(cmd_and_args)))
             else:
                 args = []
                 if cmd in ('home', 'recover', 'back', 'soak', 'dry', 'getplate', 'changetool', 'toolcal', 'backht'):
@@ -1117,16 +1126,14 @@ class CS8Connection:
                 args = [tool, puck_lid, sample]
                 args_str = ','.join(map(str, args))
                 cmd_and_args = cmd + '(' + args_str + ')'
-                self.debug("sending operation: %s" % cmd_and_args)
+                self.debug("sending operation: {}".format(str(cmd_and_args)))
             else:
                 allowed_tools = (2, 3, 5)
                 if cmd in ('home', 'safe'):
                     allowed_tools = (0, 2, 3, 5)
 
                 if tool not in allowed_tools:
-                    raise Exception(
-                        'Allowed tools are %s (current is %s)' %
-                        (allowed_tools, tool))
+                    raise Exception('Allowed tools are {} (current is {})'.format(allowed_tools, tool))
                 args = [
                     tool,
                     puck_lid,
@@ -1465,7 +1472,7 @@ class CS8Connection:
             toolcal)
 
     def setondiff(self, puck_lid, sample, type):
-        self.info("Setting info for sample on diff to %s:%s - type = %s" % (puck_lid, sample, type))
+        self.info("Setting info for sample on diff to {}:{} - type = {}".format(puck_lid, sample, type))
         return self.trajectory('setdiffr', 0, puck_lid, sample, type=type)
 
     def cap_on_lid(self, tool):
@@ -1672,9 +1679,9 @@ class CS8Connection:
         return self.trajectory('settool2', puck_lid, sample, type)
 
     # 3.6.5.4 Virtual Inputs
-    def vdi9xon(self, input): return self.operate('vdi%don' % input)
+    def vdi9xon(self, input): return self.operate('vdi{}on'.format(input))
 
-    def vdi9xoff(self, input): return self.operate('vdi%doff' % input)
+    def vdi9xoff(self, input): return self.operate('vdi{}off'.format(input))
 
     # 3.6.5.5 Commands for LN2 controller
     def regulon(self): return self.operate('regulon')
@@ -1702,7 +1709,7 @@ class CS8Connection:
 
     def dc_reguloff(self): return self.operate('dc_reguloff')
 
-    def sethighln2(self, high_threshold): return self.operate('sethighln2(%)' % int(high_threshold))
+    def sethighln2(self, high_threshold): return self.operate('sethighln2({})'.format(int(high_threshold)))
 
     # Note: this is the #23 value of the state command
     def gethighln2(self):
@@ -1711,7 +1718,7 @@ class CS8Connection:
         raise NotImplementedError
 
     # Note: this is the #24 value of the state command
-    def setlowln2(self, low_threshold): return self.operate('setlowln2(%)' % int(low_threshold))
+    def setlowln2(self, low_threshold): return self.operate('setlowln2({})'.format(int(low_threshold)))
 
     def getlowln2(self):
         if self.model == MODEL_ISARA2:
@@ -1720,7 +1727,7 @@ class CS8Connection:
 
     def setpslvlthreshold(self, ps_level_threshold):
         if self.model == MODEL_ISARA2:
-            return self.operate('setpslvlthreshold(%)' % int(ps_level_threshold))
+            return self.operate('setpslvlthreshold({})'.format(int(ps_level_threshold)))
         raise NotImplementedError
 
     # Note: this is the #49 value of the state command
@@ -1731,7 +1738,7 @@ class CS8Connection:
 
     def setpsalarmthreshold(self, ps_alarm_threshold):
         if self.model == MODEL_ISARA2:
-            return self.operate('setpsalarmthreshold(%)' % int(ps_alarm_threshold))
+            return self.operate('setpsalarmthreshold({})'.format(int(ps_alarm_threshold)))
         raise NotImplementedError
 
     # Note: this is the #50 value of the state command
@@ -1740,18 +1747,18 @@ class CS8Connection:
             return int(self.operate('getpsalarmthreshold'))
         raise NotImplementedError
 
-    def dc_sethighln2(self, high_threshold): return self.operate('dc_sethighln2(%)' % int(high_threshold))
+    def dc_sethighln2(self, high_threshold): return self.operate('dc_sethighln2({})'.format(int(high_threshold)))
 
-    def dc_setlowln2(self, low_threshold): return self.operate('dc_setlowln2(%)' % int(low_threshold))
+    def dc_setlowln2(self, low_threshold): return self.operate('dc_setlowln2({})'.format(int(low_threshold)))
 
-    def setdewardrytimer(self, timer): return self.operate('setdewardrytimer(%)' % int(timer))
+    def setdewardrytimer(self, timer): return self.operate('setdewardrytimer({})'.format(int(timer)))
 
     def getdewardrytimer(self):
         if self.model == MODEL_ISARA2:
             return int(self.operate('getdewardrytimer'))
         raise NotImplementedError
 
-    def setdewarfillingtimer(self, timer): return self.operate('setdewarfillingtimer(%)' % int(timer))
+    def setdewarfillingtimer(self, timer): return self.operate('setdewarfillingtimer({})'.format(int(timer)))
 
     # 3.6.5.6 Maintenance commands
     def openlid1(self): return self.operate('openlid1')
@@ -1820,7 +1827,7 @@ class CS8Connection:
 
     def setspeed(self, speed_setpoint):
         if self.model == MODEL_ISARA2:
-            return self.operate('setspeed(%.2f)' % speed_setpoint)
+            return self.operate('setspeed({:.2f})'.format(speed_setpoint))
         raise NotImplementedError
 
     # Note: this is the #19 value of the state command
@@ -1831,7 +1838,7 @@ class CS8Connection:
 
     def setautocloselidtimer(self, time_to_close_lid):
         if self.model == MODEL_ISARA2:
-            return self.operate('setautocloselidtimer(%)' % int(time_to_close_lid))
+            return self.operate('setautocloselidtimer({})'.format(int(time_to_close_lid)))
         raise NotImplementedError
 
     def getautocloselidtimer(self):
@@ -1841,7 +1848,7 @@ class CS8Connection:
 
     def setmaxsoaktime(self, time_to_schedule_soaking):
         if self.model == MODEL_ISARA2:
-            return self.operate('setmaxsoaktime(%)' % int(time_to_schedule_soaking))
+            return self.operate('setmaxsoaktime({})'.format(int(time_to_schedule_soaking)))
         raise NotImplementedError
 
     def getmaxsoaktime(self):
@@ -1851,7 +1858,7 @@ class CS8Connection:
 
     def setmaxsoaknb(self, soak_cycle_nb):
         if self.model == MODEL_ISARA2:
-            return self.operate('setmaxsoaknb(%)' % int(soak_cycle_nb))
+            return self.operate('setmaxsoaknb({})'.format(int(soak_cycle_nb)))
         raise NotImplementedError
         
     def getmaxsoaknb(self):
@@ -1861,7 +1868,7 @@ class CS8Connection:
 
     def setgrippercoolingtimer(self, cooling_time):
         if self.model == MODEL_ISARA2:
-            return self.operate('setgrippercoolingtimer(%)' % int(cooling_time))
+            return self.operate('setgrippercoolingtimer({})'.format(int(cooling_time)))
         raise NotImplementedError
 
     def getgrippercoolingtimer(self):
@@ -1871,7 +1878,7 @@ class CS8Connection:
 
     def setautodrytimer(self, time_to_dry_gripper):
         if self.model == MODEL_ISARA2:
-            return self.operate('setautodrytimer(%)' % int(time_to_dry_gripper))
+            return self.operate('setautodrytimer({})'.format(int(time_to_dry_gripper)))
         raise NotImplementedError
 
     def getautodrytimer(self):
@@ -1947,7 +1954,7 @@ class CS8Connection:
                 position_ans = self.position()
                 message_ans = self.message()
         except Exception as e:
-            self.error("Exception when reading status from server: %s" % str(e))
+            self.error("Exception when reading status from server: {}".format(str(e)))
             raise e
 
         status_dict = {}
@@ -2094,7 +2101,7 @@ class CS8Connection:
         else:
             self.puck_presence = [False, ] * self.nb_pucks
             for i in range(self.nb_pucks):
-                st_key = "CASSETTE_%d_PRESENCE" % (i + 1)
+                st_key = "CASSETTE_{}_PRESENCE".format(i + 1)
                 self.puck_presence[i] = status_dict[st_key]
 
         # Track start/end trajectories
@@ -2138,14 +2145,15 @@ class CS8Connection:
 
             self.pathinfo['idle'] = status_dict[self._isara2_do_keys['do_Idle']]
             self.pathinfo['home'] = status_dict[self._isara2_do_keys['do_AtHome']]
-            for i in range(5):
-                do_key = "do_InArea{}".format(i)
+            for i in range(self.number_of_areas):
+                do_key = "do_InArea{}".format(i+1)
                 try:
                     in_area_key = self._isara2_do_keys[do_key]
                 except KeyError:
-                    self.pathinfo["in_area{}".format(i)] = 0
+                    self.pathinfo["in_area{}".format(i+1)] = 0 # == False
                 else:
-                    self.pathinfo["in_area{}".format(i)] = status_dict[in_area_key]
+                    self.pathinfo["in_area{}".format(i+1)] = status_dict[in_area_key]
+            self.pathinfo['arm_in_gonio'] = status_dict['ROBOT_IN_CAM_GONIO']
 
             self.is_som = status_dict[self._isara2_do_keys['do_SampleOnMagnet']]
             self.is_idle = status_dict[self._isara2_do_keys['do_Idle']]
@@ -2160,16 +2168,15 @@ class CS8Connection:
                 self.pathinfo['pathname'] = status_dict['PATH_NAME']
 
         if self.model in (MODEL_CATS, MODEL_ISARA):
-            self.pathinfo['double_gripper'] = (
-                self.current_tool.strip().lower() == 'double')
-            self.pathinfo['safe'] = self.path_in_safe_area()
+            self.pathinfo['double_gripper'] = (self.current_tool.strip().lower() == 'double')
+            self.pathinfo['safe'] = self.path_in_safe_area() # This method updates .is_safe
 
             self.check_recovery_needed()
             if self.executing_recovery:
                 self.follow_recovery_process()
         elif self.model == MODEL_ISARA2:
             self.pathinfo['double_gripper'] = (self.current_tool.strip().lower() == 'doublegripper')
-            self.pathinfo['safe'] = self.path_in_safe_area() # REVIEW THIS METHOD FOR ISARA2!!!
+            self.pathinfo['safe'] = self.path_in_safe_area() # This method updates .is_safe
 
             self.check_recovery_needed() # This is not implemented...
             if self.executing_recovery:
@@ -2192,7 +2199,7 @@ class CS8Connection:
                     self.error("Problem communicating with robot, discarding result of 'sampledata' command")
                     sampledata_ans = None
             except Exception as e:
-                self.error("Exception when reading sampledata from server: %s" % str(e))
+                self.error("Exception when reading sampledata from server: {}".format(str(e)))
                 raise e
             else:
                 if sampledata_ans:
@@ -2209,8 +2216,12 @@ class CS8Connection:
                         try:
                             dewar_puck_values = sampledata_values[dewar_puck]
                             v = dewar_puck_values.split('|')
-                            puck_matrix = v[0]
-                            puck_group  = v[1]
+                            try:
+                                puck_matrix = v[0]
+                                puck_group  = v[1]
+                            except IndexError:
+                                puck_matrix = v[0]
+                                puck_group  = ""
                             dewar_matrices.append(puck_matrix)
                             dewar_groups.append(puck_group)
                         except:
@@ -2223,8 +2234,12 @@ class CS8Connection:
                         try:
                             hot_puck_values = sampledata_values[hot_puck]
                             v = hot_puck_values.split('|')
-                            puck_matrix = v[0]
-                            puck_group  = v[1]
+                            try:
+                                puck_matrix = v[0]
+                                puck_group  = v[1]
+                            except IndexError:
+                                puck_matrix = v[0]
+                                puck_group  = ""
                             hot_matrices.append(puck_matrix)
                             hot_groups.append(puck_group)
                         except:
@@ -2237,8 +2252,12 @@ class CS8Connection:
                         try:
                             plate_values = sampledata_values[plate]
                             v = plate_values.split('|')
-                            plate_matrix = v[0]
-                            plate_group  = v[1]
+                            try:
+                                plate_matrix = v[0]
+                                plate_group  = v[1]
+                            except IndexError:
+                                plate_matrix = v[0]
+                                plate_group  = ""
                             plate_matrices.append(plate_matrix)
                             plate_groups.append(plate_group)
                         except:
@@ -2274,7 +2293,7 @@ class CS8Connection:
                     self.warn("RECOVER_GET_FAILED needed!")
 
         elif self.model == MODEL_ISARA2:
-            if self.number_of_areas > 3: # XAIRA
+            if self.number_of_areas == 4: # XAIRA
                 pass
             else: # XALOC
                 pass
@@ -2326,9 +2345,7 @@ class CS8Connection:
                         # IRELEC-CATS server: 0-spine/1-unipuck
                         # PyCATS TANGO: 1-spine/2-unipuck (cassette_type)
                         sample_type = sample_type_by_lid[puck_lid - 1] - 1
-                    self.warn(
-                        "Recovering from GET_FAILED. Phase2 (setondiff %s, %s, %s)" %
-                        (puck_lid, sample, sample_type))
+                    self.warn("Recovering from GET_FAILED. Phase2 (setondiff {}, {}, {})".format(puck_lid, sample, sample_type))
                     self.setondiff(puck_lid, sample, sample_type)
                     # home
                     self.home(2)
@@ -2344,6 +2361,7 @@ class CS8Connection:
     # To do: review this method for ISARA2 model in XAIRA
     def path_in_safe_area(self):
         if self.model in (MODEL_CATS, MODEL_ISARA):
+            ### REVIEW self.is_inri INDEXES!!!
             if not self.pathinfo['running']:
                 self.is_running = False
                 self.is_safe = True
@@ -2351,8 +2369,8 @@ class CS8Connection:
                 #self.ri2_count = 0
                 #self.is_inr1 = False
                 #self.is_inr2 = False
-                self.ri_count = [0]*5
-                self.is_inri = [False]*5
+                self.ri_count = [0] * CS8Connection.MAX_NUM_AREAS
+                self.is_inri = [False] * CS8Connection.MAX_NUM_AREAS
                 return
 
             if self.pathinfo['running'] and self.is_running is False:
@@ -2366,8 +2384,8 @@ class CS8Connection:
                     #self.ri2_count = 0
                     #self.is_inr1 = False
                     #self.is_inr2 = False
-                    self.ri_count = [0]*5
-                    self.is_inri = [False]*5
+                    self.ri_count = [0] * CS8Connection.MAX_NUM_AREAS
+                    self.is_inri = [False] * CS8Connection.MAX_NUM_AREAS
 
             if self.pathinfo['pathname'] not in self.check_paths_all:
                 return self.is_safe
@@ -2393,7 +2411,7 @@ class CS8Connection:
             # area2 became False
             if not self.pathinfo['in_area2'] and self.is_inri[2]:
                 self.ri_count[2] += 1
-                self.is_inri[2] = True
+                self.is_inri[2] = False
 
                 if self.pathinfo['double_gripper']:
                     if self.ri_count[2] > 0:
@@ -2407,10 +2425,12 @@ class CS8Connection:
 
         elif self.model == MODEL_ISARA2:
             if not self.pathinfo['running']:
+                if self.is_running:
+                    self.info("Trajectory ended with area count of {} and presence {}".format(str(self.ri_count), str(self.is_inri)))
                 self.is_running = False
                 self.is_safe = True
-                self.ri_count = [0]*5
-                self.is_inri = [False]*5
+                self.ri_count = [0] * CS8Connection.MAX_NUM_AREAS
+                self.is_inri = [False] * CS8Connection.MAX_NUM_AREAS
                 return
 
             if self.pathinfo['running'] and self.is_running is False:
@@ -2420,41 +2440,36 @@ class CS8Connection:
                     self.is_safe = True
                 else:
                     self.is_safe = False
-                    self.ri_count = [0]*5
-                    self.is_inri = [False]*5
+                    self.ri_count = [0] * CS8Connection.MAX_NUM_AREAS
+                    self.is_inri = [False] * CS8Connection.MAX_NUM_AREAS
 
             if self.pathinfo['pathname'] not in self.check_paths_all:
                 return self.is_safe
 
-            if self.number_of_areas > 3: # XAIRA
-                pass
-                #self.is_safe = True # Implement this...
+            for i in range(self.number_of_areas):
+                in_area_key = "in_area{}".format(i+1)
+                if self.pathinfo[in_area_key] and not self.is_inri[i]:
+                    self.is_inri[i] = True
+                if not self.pathinfo[in_area_key] and self.is_inri[i]:
+                    self.ri_count[i] += 1
+                    self.is_inri[i] = False
+
+            if self.number_of_areas == 4: # XAIRA
+                was_safe = self.is_safe
+                self.is_safe = self.ri_count[0] and self.ri_count[1] and self.ri_count[2] and (self.ri_count[3] or (self.is_inri[3] and not self.pathinfo["arm_in_gonio"]))
+                if self.is_safe and not was_safe:
+                    self.info("Trajectory {} has now been deemed safe".format(self.pathinfo['pathname']))
+
             else: # XALOC
-                # area1 became True
-                if self.pathinfo['in_area1'] and not self.is_inri[1]:
-                    self.is_inri[1] = True
-                # area1 became False
-                if not self.pathinfo['in_area1'] and self.is_inri[1]:
-                    self.ri_count[1] += 1
-                    self.is_inri[1] = False
-
-                # area2 became True
-                if self.pathinfo['in_area2'] and not self.is_inri[2]:
-                    self.is_inri[2] = True
+                ### REVIEW self.is_inri INDEXES!!!
                 # area2 became False
-                if not self.pathinfo['in_area2'] and self.is_inri[2]:
-                    self.ri_count[2] += 1
-                    self.is_inri[2] = True
-
+                if self.ri_count[2]:
                     if self.pathinfo['double_gripper']:
-                        if self.ri_count[2] > 0:
-                            self.is_safe = True
+                        self.is_safe = True
                     elif self.pathinfo['pathname'] in self.check_paths_grp1:
-                        if self.ri_count[2] > 0:
-                            self.is_safe = True
+                        self.is_safe = True
                     elif self.pathinfo['pathname'] in self.check_paths_grp2:
-                        if self.ri_count[2] > 1:
-                            self.is_safe = True
+                        self.is_safe = self.ri_count[2] > 1
 
         return self.is_safe
 
